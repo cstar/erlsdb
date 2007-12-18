@@ -1,0 +1,67 @@
+Summary
+-----------
+Amazon SimpleDB is a web service for running queries on structured data 
+in real time. See aws.amazon.com/simpledb.
+This erlsdb library provides interface to access SimpleDB web service using
+REST APIs.
+
+
+Author:  Shahzad Bhatti <bhatti@plexobject.com>
+
+Version: 0.1
+Date:    2007/12/17
+
+
+Requirements
+------------
+
+- OTP-R12B (http://erlang.org/download.html)
+
+- An Amazon Web Services account - See http://www.amazonaws.com
+
+
+Installation and test
+---------------------
+
+$ tar zxvf erlsdb-0.1.tar.gz
+$ cd erlsdb-0.1
+$ make
+$ echo "code:add_pathz(\"$PWD/ebin\")." >> ~/.erlang
+
+$ erl
+1> erlsdb_test:run("Access Key", "Secret Key").
+2> q().
+
+The test includes
+
+ - list all of your domains
+ - create the test domain 
+ - create a new item in that domain
+ - read the item item
+ - update the item
+ - delete the item
+
+
+Change Log
+---------------
+
+v0.1 - 2007/12/17
+
+  - Initial release
+  - Added tests
+
+
+BackLog of future functionality
+  - spawn processes for queries
+  - better error handling
+
+License
+-------
+
+Released under the GNU General Public License v2.
+
+Feedback
+--------
+
+Send patches, issues and comments to bhatti@plexobject.com.
+
