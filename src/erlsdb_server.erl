@@ -437,8 +437,8 @@ rest_request(SecretKey, Params, XmlParserFunc) ->
     	        200 ->
 	            XmlParserFunc(Xml);
 	        _ ->
-    		    [#xmlText{value=ErrorCode}]    = xmerl_xpath:string("/Error/Code/text()", Xml),
-    		    [#xmlText{value=ErrorMessage}] = xmerl_xpath:string("/Error/Message/text()", Xml),
+    		    [#xmlText{value=ErrorCode}]    = xmerl_xpath:string("//Error/Code/text()", Xml),
+    		    [#xmlText{value=ErrorMessage}] = xmerl_xpath:string("//Error/Message/text()", Xml),
     	            {error, ErrorCode, ErrorMessage}
             end;
         {error, ErrorMessage} ->
@@ -447,7 +447,7 @@ rest_request(SecretKey, Params, XmlParserFunc) ->
     	    	    ?DEBUG("URL ~p Timedout, retrying~n", [Url]),
     	    	    erlsdb_util:sleep(1000),
 		    rest_request(SecretKey, Params, XmlParserFunc);
-		true ->
+		_ ->
     	           {error, http_error, ErrorMessage}
 	    end
     end.
