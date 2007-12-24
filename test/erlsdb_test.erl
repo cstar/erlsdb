@@ -70,9 +70,14 @@ test_replace_get_attributes() ->
         ["State", "WA"],
         ["Zip", "98101"]
 	]),
-    erlsdb:replace_attributes("TccAddr", Attributes),
-    {ok, UnsortedAttrs} = erlsdb:get_attributes("TccAddr"),
-    Attributes = lists:sort(UnsortedAttrs).
+    erlsdb:replace_attributes("TccAddress", Attributes),
+    Response = erlsdb:get_attributes("TccAddress"),
+    case Response of
+        {ok, UnsortedAttrs} ->
+            Attributes = lists:sort(UnsortedAttrs);
+	_ ->
+            io:format("Unexpected response while getting attributes ~p~n", [Response])
+     end.
 
 test_replace_delete_attributes() ->
     erlsdb:create_domain(),
@@ -82,9 +87,19 @@ test_replace_delete_attributes() ->
         ["State", "WA"],
         ["Zip", "98101"]
 	]),
-    erlsdb:replace_attributes("TccAddr", Attributes),
-    erlsdb:delete_attributes("TccAddr"),
-    {ok, []} = erlsdb:get_attributes("TccAddr").
+    erlsdb:replace_attributes("TccAddress", Attributes),
+    erlsdb:delete_attributes("TccAddress"),
+    erlsdb_util:sleep(5000), %% let it sync
+    Response = erlsdb:get_attributes("TccAddress"),
+    case Response of
+        {ok, []} ->
+            ok;
+	_ ->
+            io:format("Unexpected response while getting attributes after delete ~p~n", [Response])
+     end.
+
+test_gmt_difference([AccessKey, SecretKey]) ->
+    "-08:00" = erlsdb_util:gmt_difference().
 
 test([AccessKey, SecretKey]) ->
     %debug_helper:start(),

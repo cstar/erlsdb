@@ -34,7 +34,6 @@
 	abs_two_digit/1,
 	timestamp/0,
 	gmt_difference/0,
-	gmt_difference/4,
 	hmac/2,
 	xml_values/1,
 	xml_values/2,
@@ -140,15 +139,21 @@ timestamp() ->
 %% @end
 %%--------------------------------------------------------------------
 gmt_difference() ->
-    "-08:00".
+    UTC = calendar:universal_time(),
+    Local = calendar:universal_time_to_local_time(UTC),
+    gmt_difference((calendar:datetime_to_gregorian_seconds(Local) -  calendar:datetime_to_gregorian_seconds(UTC)) / 3600).
+gmt_difference(Diff) when Diff < 0 ->
+    gmt_difference(-Diff, "-");
+gmt_difference(Diff) ->
+    gmt_difference(Diff, "+").
 
-gmt_difference(Hour, Min, LocalHour, LocalMin) ->
-    if 
-	Hour < LocalHour -> 
-    	    "-" ++ abs_two_digit(LocalHour-Hour) ++ ":" ++ abs_two_digit(LocalMin-Min);
-	true -> 
-    	    "+" ++ abs_two_digit(LocalHour-Hour) ++ ":" ++ abs_two_digit(LocalMin-Min)
-    end.
+gmt_difference(Diff, Sign) when Diff < 10 ->
+    gmt_difference1(float_to_list(Diff), Sign ++ "0");
+gmt_difference(Diff, Sign) ->
+    gmt_difference1(float_to_list(Diff), Sign).
+gmt_difference1(StrDiff, SignZero) ->
+    Index = string:chr(StrDiff, $.),
+    SignZero ++ string:substr(StrDiff, 1, Index-1) ++ ":" ++ string:substr(StrDiff, Index+1, 2).
 
 
 %%--------------------------------------------------------------------
