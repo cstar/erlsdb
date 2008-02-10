@@ -167,7 +167,7 @@ gmt_difference1(StrDiff, SignZero) ->
 %% @end
 %%--------------------------------------------------------------------
 hmac(SecretKey, Data) ->
-    http_base_64:encode(
+    base64:encode(
           binary_to_list(crypto:sha_mac(SecretKey, Data))).
 
 

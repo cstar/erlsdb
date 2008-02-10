@@ -137,13 +137,13 @@ list_domains(MoreToken) ->
 %% <pre>
 %% Types:
 %%  MoreToken = string from last web request or nil
-%%  MaxResults = integer - for maximum number of domains to return.
+%%  MaxNumberOfDomains = integer - for maximum number of domains to return.
 %% </pre>
-%% @spec list_domains(MoreToken, MaxResults) -> {ok, [Domains], MoreToken} | {error, {ErrorCode, ErrorMessage}
+%% @spec list_domains(MoreToken, MaxNumberOfDomains) -> {ok, [Domains], MoreToken} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
-list_domains(MoreToken, MaxResults) ->
-    gen_server:call(?SERVER, {list_domains, MoreToken, MaxResults}, ?TIMEOUT).
+list_domains(MoreToken, MaxNumberOfDomains) ->
+    gen_server:call(?SERVER, {list_domains, MoreToken, MaxNumberOfDomains}, ?TIMEOUT).
 
 
 %%--------------------------------------------------------------------
@@ -297,11 +297,11 @@ init([InitialState]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_call({list_domains, MoreToken, MaxResults}, _From, #sdb_state{access_key=AccessKey, secret_key = SecretKey} = State) ->
+handle_call({list_domains, MoreToken, MaxNumberOfDomains}, _From, #sdb_state{access_key=AccessKey, secret_key = SecretKey} = State) ->
     ?DEBUG("******* erlsdb_server:list_domains BEGIN~n", []),
     Base = base_parameters("ListDomains", AccessKey),
     Base1 = if MoreToken == nil -> Base; true -> Base ++ [["MoreToken", MoreToken]] end,
-    Base2 = if MaxResults == nil -> Base1; true -> Base1 ++ [["MaxResults", MaxResults]] end,
+    Base2 = if MaxNumberOfDomains == nil -> Base1; true -> Base1 ++ [["MaxNumberOfDomains", MaxNumberOfDomains]] end,
     Response = rest_request(
 	SecretKey, 
 	Base2,

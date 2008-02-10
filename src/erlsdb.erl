@@ -125,13 +125,13 @@ list_domains(MoreToken) ->
 %% @doc List all domains for the account
 %% Types:
 %%  MoreToken = string from last web request or nil
-%%  MaxResults = integer - for maximum number of domains to return.
+%%  MaxNumberOfDomains = integer - for maximum number of domains to return.
 %% </pre>
-%% @spec list_domains(MoreToken, MaxResults) -> {ok, [Domains], MoreToken} | {error, {ErrorCode, ErrorMessage}
+%% @spec list_domains(MoreToken, MaxNumberOfDomains) -> {ok, [Domains], MoreToken} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
-list_domains(MoreToken, MaxResults) ->
-    erlsdb_server:list_domains(MoreToken, MaxResults). 
+list_domains(MoreToken, MaxNumberOfDomains) ->
+    erlsdb_server:list_domains(MoreToken, MaxNumberOfDomains). 
 
 
 %%--------------------------------------------------------------------
