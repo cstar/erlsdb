@@ -20,7 +20,7 @@
 %%%-------------------------------------------------------------------
 -module(erlsdb_server).
 -author("Shahzad Bhatti <bhatti@plexobject.com> [http://bhatti.plexobject.com]").
-
+-author("Eric Cestari <ecestari@mac.com> [http://www.cestari.info]").
 -include_lib("xmerl/include/xmerl.hrl").
 -behaviour(gen_server).
 %%--------------------------------------------------------------------
@@ -32,20 +32,8 @@
 %% External exports
 %%--------------------------------------------------------------------
 -export([
-	start_link/1,
-	stop/0,
-	create_domain/1, 
-	list_domains/1, 
-	list_domains/0, 
-	list_domains/2, 
-	delete_domain/1, 
-	put_attributes/3, 
-	put_attributes/4, 
-	replace_attributes/3,
-	get_attributes/2, 
-	get_attributes/3, 
-	delete_item/2, 
-	delete_attributes/2
+	start_link/2,
+	stop/0
 	]).
 
 %%--------------------------------------------------------------------
@@ -80,9 +68,9 @@
 %% @spec start_link() -> {ok, pid()} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Args) ->
+start_link(Access, Secret) ->
     %%?DEBUG("******* erlsdb_server:start_link/1 starting~n", [InitialState]),
-    gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
+    gen_server:start_link(?MODULE, [Access, Secret], []).
 
 %%--------------------------------------------------------------------
 %% @doc Stops the server.
@@ -90,183 +78,7 @@ start_link(Args) ->
 %% @end
 %%--------------------------------------------------------------------
 stop() ->
-    gen_server:cast(?SERVER, stop),
-    init:stop().
-
-
-%%--------------------------------------------------------------------
-%% @doc Creates a new domain that was passed during initialization
-%%	and is stored in state.
-%% Types:
-%% <pre>
-%% </pre>
-%% @spec create_domain() -> ok
-%% @end
-%%--------------------------------------------------------------------
-create_domain(Domain) ->
-    gen_server:cast(?SERVER, {create_domain,Domain}).
-
-%%--------------------------------------------------------------------
-%% @doc List all domains for the account
-%% <pre>
-%% Types:
-%% </pre>
-%% @spec list_domains() -> {ok, [Domains], MoreToken} | {error, {ErrorCode, ErrorMessage}
-%% @end
-%%--------------------------------------------------------------------
-list_domains() ->
-    list_domains(nil, nil).
-
-%%--------------------------------------------------------------------
-%% @doc List all domains for the account, will continue result from MoreTokens 
-%% <pre>
-%% Types:
-%%  MoreToken = string from last web request or nil
-%% </pre>
-%% @spec list_domains(MoreToken) -> {ok, [Domains], MoreToken} | {error, {ErrorCode, ErrorMessage}
-%% @end
-%%--------------------------------------------------------------------
-list_domains(MoreToken) ->
-    list_domains(MoreToken, nil).
-
-%%--------------------------------------------------------------------
-%% @doc List all domains for the account
-%% <pre>
-%% Types:
-%%  MoreToken = string from last web request or nil
-%%  MaxNumberOfDomains = integer - for maximum number of domains to return.
-%% </pre>
-%% @spec list_domains(MoreToken, MaxNumberOfDomains) -> {ok, [Domains], MoreToken} | {error, {ErrorCode, ErrorMessage}
-%% @end
-%%--------------------------------------------------------------------
-list_domains(MoreToken, MaxNumberOfDomains) ->
-    gen_server:call(?SERVER, {list_domains, MoreToken, MaxNumberOfDomains}, ?TIMEOUT).
-
-
-%%--------------------------------------------------------------------
-%% @doc Deletes a domain  that was passed during initialization
-%%	and is stored in state.
-%% <pre>
-%% Types:
-%% </pre>
-%% @spec delete_domain() -> ok
-%% @end
-%%--------------------------------------------------------------------
-delete_domain(Domain) ->
-    gen_server:cast(?SERVER, {delete_domain,Domain}).
-
-
-
-%%--------------------------------------------------------------------
-%% @doc Adds an item (tuple) to the domain
-%% <pre>
-%% Types:
-%%  ItemName = string
-%%  Attributes = array of key/value [[key1, value1], [key2, value2]...]
-%% </pre>
-%% @spec put_attributes(ItemName, Attributes) -> ok
-%% @end
-%%--------------------------------------------------------------------
-put_attributes(Domain,ItemName, Attributes) ->
-    put_attributes(Domain,ItemName, Attributes, false).
-
-
-%%--------------------------------------------------------------------
-%% @doc Adds an item (tuple) to the domain
-%% <pre>
-%% Types:
-%%  ItemName = string
-%%  Attributes = array of key/value [[key1, value1], [key2, value2]...]
-%%  Replace = boolean - if true existing attributes will be replaced, 
-%%		otherwise they will be appended.
-%% </pre>
-%% @spec put_attributes(ItemName, Attributes, Replace) -> ok
-%% @end
-%%--------------------------------------------------------------------
-put_attributes(Domain,ItemName, Attributes, Replace) ->
-    gen_server:cast(?SERVER, {put_attributes, Domain, ItemName, Attributes, Replace}).
-
-
-%%--------------------------------------------------------------------
-%% @doc Replace an existing item with specified attributes
-%% <pre>
-%% Types:
-%%  ItemName = string
-%%  Attributes = array of key/value [[key1, value1], [key2, value2]...]
-%% </pre>
-%% @spec replace_attributes(ItemName, Attributes) -> ok
-%% @end
-%%--------------------------------------------------------------------
-replace_attributes(Domain,ItemName, Attributes) ->
-    put_attributes(Domain,ItemName, Attributes, true).
-
-
-%%--------------------------------------------------------------------
-%% @doc Retrieves an existing item with all attributes
-%% <pre>
-%% Types:
-%%  ItemName = string
-%% </pre>
-%% @spec get_attributes(ItemName) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
-%% @end
-%%--------------------------------------------------------------------
-get_attributes(Domain,ItemName) ->
-    get_attributes(Domain,ItemName, nil).
-
-
-%%--------------------------------------------------------------------
-%% @doc Retrieves an existing item with matching attributes
-%% <pre>
-%% Types:
-%%  ItemName = string
-%%  Attributes = array of keys [key1, key2, ...]
-%% </pre>
-%% @spec get_attributes(ItemName, Attributes) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
-%% @end
-%%--------------------------------------------------------------------
-get_attributes(Domain,ItemName, AttributeNames) ->
-    gen_server:call(?SERVER, {get_attributes,Domain, ItemName, AttributeNames}, ?TIMEOUT).
-
-
-%%--------------------------------------------------------------------
-%% @doc Deletes an existing item 
-%% <pre>
-%% Types:
-%%  ItemName = string
-%%  Attributes = array of keys [key1, key2, ...]
-%% </pre>
-%% @spec delete_item(ItemName) -> ok
-%% @end
-%%--------------------------------------------------------------------
-delete_item(Domain,ItemName) ->
-    delete_attributes(Domain,ItemName).
-
-
-%%--------------------------------------------------------------------
-%% @doc Deletes all attributes for given item in domain
-%% <pre>
-%% Types:
-%%  ItemName = string
-%% </pre>
-%% @spec delete_attributes(ItemName) -> ok
-%% @end
-%%--------------------------------------------------------------------
-delete_attributes(Domain,ItemName) ->
-    delete_attributes(Domain,ItemName, nil).
-
-%%--------------------------------------------------------------------
-%% @doc Deletes all matching attributes for given item in domain
-%% <pre>
-%% Types:
-%%  ItemName = string
-%%  Attributes = array of keys [key1, key2, ...]
-%% </pre>
-%% @spec delete_attributes(ItemName, AttributeNames) -> ok
-%% @end
-%%--------------------------------------------------------------------
-delete_attributes(Domain,ItemName, AttributeNames) ->
-    gen_server:cast(?SERVER, {delete_attributes,Domain, ItemName, AttributeNames}).
-
+    gen_server:cast(?SERVER, stop).
 
 %%====================================================================
 %% Server functions
@@ -494,10 +306,9 @@ base_parameters(Action, AccessKey) ->
 %%% Configuration Functions %%%
 %%%-------------------------------------------------------------------
 uri() ->
-   "http://sdb.amazonaws.com?".
+   "http://sdb.amazonaws.com/?".
 
 
 version() ->
-   %"2007-11-07".
    "2007-11-07".
 

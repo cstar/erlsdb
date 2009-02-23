@@ -20,72 +20,20 @@
 %%%-------------------------------------------------------------------
 -module(erlsdb_sup).
 -author("Shahzad Bhatti <bhatti@plexobject.com> [http://bhatti.plexobject.com]").
+-author("Eric Cestari <ecestari@mac.com> [http://www.cestari.info]").
 
 -behaviour(supervisor).
 %%--------------------------------------------------------------------
 %% Include files
 %%--------------------------------------------------------------------
+-export([start_link/1]).
+-export([init/1]).
 
-%%--------------------------------------------------------------------
-%% External exports
-%%--------------------------------------------------------------------
--export([
-	 start_link/1
-        ]).
-
-%%--------------------------------------------------------------------
-%% Internal exports
-%%--------------------------------------------------------------------
--export([
-	 init/1
-        ]).
-
-%%--------------------------------------------------------------------
-%% Macros
-%%--------------------------------------------------------------------
--define(SERVER, ?MODULE).
-
-%%--------------------------------------------------------------------
-%% Records
-%%--------------------------------------------------------------------
-
-%%====================================================================
-%% External functions
-%%====================================================================
-%%--------------------------------------------------------------------
-%% @doc Starts the supervisor.
-%% @spec start_link(StartArgs) -> {ok, pid()} | Error
-%% @end
-%%--------------------------------------------------------------------
 start_link(StartArgs) ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
+    supervisor:start_link(?MODULE, StartArgs).
 
-%%====================================================================
-%% Server functions
-%%====================================================================
-%%--------------------------------------------------------------------
-%% Func: init/1
-%% Returns: {ok,  {SupFlags,  [ChildSpec]}} |
-%%          ignore                          |
-%%          {error, Reason}   
-%%--------------------------------------------------------------------
 init(StartArgs) ->
-    RestartStrategy    = one_for_one,
-    MaxRestarts        = 1000,
-    MaxTimeBetRestarts = 3600,
-    
-    SupFlags = {RestartStrategy, MaxRestarts, MaxTimeBetRestarts},
-    
-    ChildSpecs =
-	[
-	 {erlsdb_server,
-	  {erlsdb_server, start_link, StartArgs},
-	  permanent,
-	  1000,		% period for graceful shutdown
-	  worker,
-	  [erlsdb_server]}
-	 ],
-    {ok,{SupFlags, ChildSpecs}}.
-%%====================================================================
-%% Internal functions
-%%====================================================================
+    {ok, {{simple_one_for_one, 10, 1},
+          [{undefined, {erlsdb_server, start_link, StartArgs},
+            temporary, brutal_kill, worker, [erlsdb_server]}]}}.
+

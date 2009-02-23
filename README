@@ -1,9 +1,6 @@
 ErlSDB README
------------
-
-That README is currently under construction.
-
--- Eric
+-------------
+This code is a overhaul of Shahzad Bhatti's original code (apparently not maintained anymore).
 
 Summary
 -----------
@@ -12,12 +9,10 @@ in real time. See aws.amazon.com/simpledb.
 This erlsdb library provides interface to access SimpleDB web service using
 REST APIs.
 
-
 Author:  Shahzad Bhatti <bhatti@plexobject.com>
-
-Version: 0.1
-Date:    2007/12/17
-
+Author: Eric Cestari <eric@ohmforce.com>
+Version: 1.0
+Date:    2009/02/23
 
 Requirements
 ------------
@@ -25,8 +20,6 @@ Requirements
 - OTP-R12B (http://erlang.org/download.html)
 
 - An Amazon Web Services account - See http://www.amazonaws.com
-
-
 
 Change Log
 ---------------
@@ -36,23 +29,46 @@ v0.1 - 12/21/2007
   - Initial release
   - Added tests
 
+Features
+---------
+- Uses Signature V2
+- Multiple servers are ran 5 by default
+- HTTP calls are asynchronous, per server.
 
-BackLog of future functionality
-  - spawn processes for queries
-  - better error handling
+TODO
+-----
+- Update documentation
+- Add support for SELECT'ing
+- The many little things that will make this library production-worthy.
+- add optional support for SSL
+- make better return values.
 
 License
 -------
 
 Released under the GNU General Public License v2.
 
-Feedback
---------
-
-Send patches, issues and comments to bhatti@plexobject.com.
-
 = BUILDING =
-= Usage = 
+
+Type rake.
+The first time, you will need to edit erlang_config.rb.
+Re-run rake
+
+= RUNNING = 
+
+erl -boot release_local/erlsdb-initial -erlsdb access '"<AWS_ACCESS_ID>"' secret '"<AWS_SECRET_KEY>"'
+1> erlsdb:create_domain("fubar").
+nil
+2> erlsdb:list_domains().
+{ok,["fubar"],[]}
+3> erlsdb:put_attributes("fubar", "test", [{"foo", "bar"}]).
+nil
+4> erlsdb:get_attributes("fubar", "test").
+{ok,[{"foo","bar"}]}
+
+= About building = 
+(Extract from charpi's readme)
+
 rake --tasks : to know all tasks
 
 You'll need a configuration in which you'll have to put things specific to your installation.
@@ -72,6 +88,7 @@ rake otp:initial_targer[name,version]: Create a tarball with a 'ready' to deploy
      an erlang system running the release. To use the system, you have to provide
      2 startup files in a directory named 'release_config'. Look at the sample in the
      application sample_rake.
-= Author = 
+= Build Author = 
 Nicolas Charpentier <open_source@charpi.net>
+
 

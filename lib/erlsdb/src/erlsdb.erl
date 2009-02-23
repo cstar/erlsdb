@@ -20,6 +20,7 @@
 %%%-------------------------------------------------------------------
 -module(erlsdb).
 -author("Shahzad Bhatti <bhatti@plexobject.com> [http://bhatti.plexobject.com]").
+-author("Eric Cestari <ecestari@mac.com> [http://www.cestari.info]").
 
 -behaviour(application).
 %%--------------------------------------------------------------------
@@ -76,12 +77,15 @@ start(_Type, _StartArgs) ->
     %case erlsdb_sup:start_link(StartArgs) of
     ID = param(access),
     Secret = param(secret),
-    case erlsdb_server:start_link([ID, Secret]) of
-	{ok, Pid} -> 
-	    {ok, Pid};
-	Error ->
-	    Error
-    end.
+    N = param(workers, 5),
+    {ok,SupPid} = erlsdb_sup:start_link([ID, Secret]),
+    pg2:create(erlsdb_servers),
+	lists:map(
+	  fun(_) ->
+		  {ok, Pid} =  supervisor:start_child(SupPid,[]) of
+		  pg2:join(erlsdb_servers, Pid)
+	  end, lists:seq(1, N)),
+	 {ok,SupPid}.
 
 %%--------------------------------------------------------------------
 %% @doc Called to shudown the erlsdb application.
@@ -89,6 +93,7 @@ start(_Type, _StartArgs) ->
 %% @end
 %%--------------------------------------------------------------------
 shutdown() ->
+    pg2:delete(erlsdb_servers),
     application:stop(erlsdb).
 
 
@@ -100,7 +105,8 @@ shutdown() ->
 %% @end
 %%--------------------------------------------------------------------
 create_domain(Domain) ->
-    erlsdb_server:create_domain(Domain).
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {create_domain,Domain}).
 
 %%--------------------------------------------------------------------
 %% @doc List all domains for the account
@@ -110,7 +116,7 @@ create_domain(Domain) ->
 %% @end
 %%--------------------------------------------------------------------
 list_domains() ->
-    erlsdb_server:list_domains(). 
+   list_domains(nil, nil).
 
 %%--------------------------------------------------------------------
 %% @doc List all domains for the account, will continue result from MoreTokens 
@@ -121,7 +127,7 @@ list_domains() ->
 %% @end
 %%--------------------------------------------------------------------
 list_domains(MoreToken) ->
-    erlsdb_server:list_domains(MoreToken). 
+    list_domains(MoreToken, nil). 
 
 %%--------------------------------------------------------------------
 %% @doc List all domains for the account
@@ -133,7 +139,8 @@ list_domains(MoreToken) ->
 %% @end
 %%--------------------------------------------------------------------
 list_domains(MoreToken, MaxNumberOfDomains) ->
-    erlsdb_server:list_domains(MoreToken, MaxNumberOfDomains). 
+     Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {list_domains,MoreToken, MaxNumberOfDomains}). 
 
 
 %%--------------------------------------------------------------------
@@ -144,7 +151,8 @@ list_domains(MoreToken, MaxNumberOfDomains) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_domain(Domain) ->
-    erlsdb_server:delete_domain(Domain). 
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {delete_domain,Domain}).
 
 
 
@@ -158,7 +166,7 @@ delete_domain(Domain) ->
 %% @end
 %%--------------------------------------------------------------------
 put_attributes(Domain,ItemName, Attributes) ->
-    erlsdb_server:put_attributes(Domain,ItemName, Attributes). 
+    put_attributes(Domain,ItemName, Attributes, false). 
 
 
 %%--------------------------------------------------------------------
@@ -173,7 +181,8 @@ put_attributes(Domain,ItemName, Attributes) ->
 %% @end
 %%--------------------------------------------------------------------
 put_attributes(Domain, ItemName, Attributes, Replace) ->
-    erlsdb_server:put_attributes(Domain, ItemName, Attributes, Replace). 
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {put_attributes,Domain, ItemName, Attributes, Replace}).
 
 
 %%--------------------------------------------------------------------
@@ -186,7 +195,7 @@ put_attributes(Domain, ItemName, Attributes, Replace) ->
 %% @end
 %%--------------------------------------------------------------------
 replace_attributes(Domain,ItemName, Attributes) ->
-    erlsdb_server:replace_attributes(Domain, ItemName, Attributes). 
+    put_attributes(Domain, ItemName, Attributes, true). 
 
 
 %%--------------------------------------------------------------------
@@ -198,7 +207,7 @@ replace_attributes(Domain,ItemName, Attributes) ->
 %% @end
 %%--------------------------------------------------------------------
 get_attributes(Domain,ItemName) ->
-    erlsdb_server:get_attributes(Domain,ItemName). 
+    get_attributes(Domain,ItemName, nil). 
 
 
 %%--------------------------------------------------------------------
@@ -210,8 +219,9 @@ get_attributes(Domain,ItemName) ->
 %% @spec get_attributes(ItemName, Attributes) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
-get_attributes(Domain,ItemName, AttributeNames) ->
-    erlsdb_server:get_attributes(Domain,ItemName, AttributeNames). 
+get_attributes(Domain,ItemName, AttributeNames) ->    
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {get_attributes,Domain,ItemName,AttributeNames}).
 
 
 %%--------------------------------------------------------------------
@@ -224,7 +234,8 @@ get_attributes(Domain,ItemName, AttributeNames) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_item(Domain,ItemName) ->
-    erlsdb_server:delete_item(Domain,ItemName).
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {delete_item, Domain,ItemName}).
 
 
 %%--------------------------------------------------------------------
@@ -236,7 +247,7 @@ delete_item(Domain,ItemName) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_attributes(Domain,ItemName) ->
-    erlsdb_server:delete_attributes(Domain,ItemName).
+    delete_attributes(Domain,ItemName, nil).
 
 %%--------------------------------------------------------------------
 %% @doc Deletes all matching attributes for given item in domain
@@ -248,7 +259,8 @@ delete_attributes(Domain,ItemName) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_attributes(Domain,ItemName, AttributeNames) ->
-    erlsdb_server:delete_attributes(Domain,ItemName, AttributeNames). 
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {delete_attributes,Domain,ItemName,AttributeNames}).
 
 
 %%====================================================================

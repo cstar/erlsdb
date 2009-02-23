@@ -20,6 +20,7 @@
 %%%-------------------------------------------------------------------
 -module(erlsdb_util).
 -author("Shahzad Bhatti <bhatti@plexobject.com> [http://bhatti.plexobject.com]").
+-author("Eric Cestari <ecestari@mac.com> [http://www.cestari.info]").
 -include_lib("xmerl/include/xmerl.hrl").
 
 %%%-------------------------------------------------------------------

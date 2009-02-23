@@ -1,4 +1,4 @@
-
+-author("Eric Cestari <ecestari@mac.com> [http://www.cestari.info]").
 %%%-------------------------------------------------------------------
 %%% @doc This header defines common record definitions
 %%% @end
