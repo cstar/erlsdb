@@ -62,10 +62,10 @@ encode_attributes(Attributes) ->
     {Encoded, _} = lists:foldr(fun encode_attributes/2, {[], 0}, Attributes),
     Encoded.
 
-encode_attributes([Key, Value], {Encoded, I}) ->
+encode_attributes({Key, Value}, {Encoded, I}) ->
     KeyName = "Attribute." ++ integer_to_list(I) ++ ".Name",
     KeyValue = "Attribute." ++ integer_to_list(I) ++ ".Value",
-    {[[KeyName, Key], [KeyValue, Value]|Encoded], I+1}.
+    {[{KeyName, Key}, {KeyValue, Value}|Encoded], I+1}.
 
 
 %%--------------------------------------------------------------------
@@ -85,7 +85,7 @@ encode_attribute_names(Attributes) ->
 
 encode_attribute_names(Key, {Encoded, I}) ->
     KeyName = "Attribute." ++ integer_to_list(I) ++ ".Name",
-    {[[KeyName, Key]|Encoded], I+1}.
+    {[{KeyName, Key}|Encoded], I+1}.
 
 
 
@@ -153,7 +153,7 @@ xml_names_values(List) ->
 xml_names_values(Xml, List) ->
     [ #xmlText{value=Name} ]  = xmerl_xpath:string("//Name/text()", Xml),
     [ #xmlText{value=Value} ]  = xmerl_xpath:string("//Value/text()", Xml),
-    [[Name, Value]|List].
+    [{Name, Value}|List].
 
   
 %%--------------------------------------------------------------------

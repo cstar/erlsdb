@@ -34,18 +34,17 @@
 -export([
 	start_link/1,
 	stop/0,
-	create_domain/0, 
-	list_domains/0, 
+	create_domain/1, 
 	list_domains/1, 
+	list_domains/0, 
 	list_domains/2, 
-	delete_domain/0, 
-	put_attributes/2, 
+	delete_domain/1, 
 	put_attributes/3, 
-	replace_attributes/2,
-	get_attributes/1, 
+	put_attributes/4, 
+	replace_attributes/3,
 	get_attributes/2, 
-	delete_item/1, 
-	delete_attributes/1, 
+	get_attributes/3, 
+	delete_item/2, 
 	delete_attributes/2
 	]).
 
@@ -104,8 +103,8 @@ stop() ->
 %% @spec create_domain() -> ok
 %% @end
 %%--------------------------------------------------------------------
-create_domain() ->
-    gen_server:cast(?SERVER, {create_domain}).
+create_domain(Domain) ->
+    gen_server:cast(?SERVER, {create_domain,Domain}).
 
 %%--------------------------------------------------------------------
 %% @doc List all domains for the account
@@ -153,8 +152,8 @@ list_domains(MoreToken, MaxNumberOfDomains) ->
 %% @spec delete_domain() -> ok
 %% @end
 %%--------------------------------------------------------------------
-delete_domain() ->
-    gen_server:cast(?SERVER, {delete_domain}).
+delete_domain(Domain) ->
+    gen_server:cast(?SERVER, {delete_domain,Domain}).
 
 
 
@@ -168,8 +167,8 @@ delete_domain() ->
 %% @spec put_attributes(ItemName, Attributes) -> ok
 %% @end
 %%--------------------------------------------------------------------
-put_attributes(ItemName, Attributes) ->
-    put_attributes(ItemName, Attributes, false).
+put_attributes(Domain,ItemName, Attributes) ->
+    put_attributes(Domain,ItemName, Attributes, false).
 
 
 %%--------------------------------------------------------------------
@@ -184,8 +183,8 @@ put_attributes(ItemName, Attributes) ->
 %% @spec put_attributes(ItemName, Attributes, Replace) -> ok
 %% @end
 %%--------------------------------------------------------------------
-put_attributes(ItemName, Attributes, Replace) ->
-    gen_server:cast(?SERVER, {put_attributes, ItemName, Attributes, Replace}).
+put_attributes(Domain,ItemName, Attributes, Replace) ->
+    gen_server:cast(?SERVER, {put_attributes, Domain, ItemName, Attributes, Replace}).
 
 
 %%--------------------------------------------------------------------
@@ -198,8 +197,8 @@ put_attributes(ItemName, Attributes, Replace) ->
 %% @spec replace_attributes(ItemName, Attributes) -> ok
 %% @end
 %%--------------------------------------------------------------------
-replace_attributes(ItemName, Attributes) ->
-    put_attributes(ItemName, Attributes, true).
+replace_attributes(Domain,ItemName, Attributes) ->
+    put_attributes(Domain,ItemName, Attributes, true).
 
 
 %%--------------------------------------------------------------------
@@ -211,8 +210,8 @@ replace_attributes(ItemName, Attributes) ->
 %% @spec get_attributes(ItemName) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
-get_attributes(ItemName) ->
-    get_attributes(ItemName, nil).
+get_attributes(Domain,ItemName) ->
+    get_attributes(Domain,ItemName, nil).
 
 
 %%--------------------------------------------------------------------
@@ -225,8 +224,8 @@ get_attributes(ItemName) ->
 %% @spec get_attributes(ItemName, Attributes) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
-get_attributes(ItemName, AttributeNames) ->
-    gen_server:call(?SERVER, {get_attributes, ItemName, AttributeNames}, ?TIMEOUT).
+get_attributes(Domain,ItemName, AttributeNames) ->
+    gen_server:call(?SERVER, {get_attributes,Domain, ItemName, AttributeNames}, ?TIMEOUT).
 
 
 %%--------------------------------------------------------------------
@@ -239,8 +238,8 @@ get_attributes(ItemName, AttributeNames) ->
 %% @spec delete_item(ItemName) -> ok
 %% @end
 %%--------------------------------------------------------------------
-delete_item(ItemName) ->
-    delete_attributes(ItemName).
+delete_item(Domain,ItemName) ->
+    delete_attributes(Domain,ItemName).
 
 
 %%--------------------------------------------------------------------
@@ -252,8 +251,8 @@ delete_item(ItemName) ->
 %% @spec delete_attributes(ItemName) -> ok
 %% @end
 %%--------------------------------------------------------------------
-delete_attributes(ItemName) ->
-    delete_attributes(ItemName, nil).
+delete_attributes(Domain,ItemName) ->
+    delete_attributes(Domain,ItemName, nil).
 
 %%--------------------------------------------------------------------
 %% @doc Deletes all matching attributes for given item in domain
@@ -265,8 +264,8 @@ delete_attributes(ItemName) ->
 %% @spec delete_attributes(ItemName, AttributeNames) -> ok
 %% @end
 %%--------------------------------------------------------------------
-delete_attributes(ItemName, AttributeNames) ->
-    gen_server:cast(?SERVER, {delete_attributes, ItemName, AttributeNames}).
+delete_attributes(Domain,ItemName, AttributeNames) ->
+    gen_server:cast(?SERVER, {delete_attributes,Domain, ItemName, AttributeNames}).
 
 
 %%====================================================================
@@ -312,8 +311,8 @@ handle_call({list_domains, MoreToken, MaxNumberOfDomains}, _From, #state{access_
 
 handle_call({get_attributes, Domain, ItemName, AttributeNames}, _From, #state{access_key=AccessKey, secret_key = SecretKey} = State) ->
     ?DEBUG("******* erlsdb_server:get_attributes~n", []),
-    Base = [["DomainName", erlsdb_util:url_encode(Domain)],
-	    ["ItemName", erlsdb_util:url_encode(ItemName)]|
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
+	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
 		base_parameters("GetAttributes", AccessKey)] ++
 		erlsdb_util:encode_attribute_names(AttributeNames),
 
@@ -441,7 +440,7 @@ rest_request(SecretKey, Params, XmlParserFunc) ->
             end;
         {error, ErrorMessage} ->
 	    case ErrorMessage of 
-		Error when Error == nxdomain orelse Error == timeout ->
+		Error when  Error == timeout -> %Error == nxdomain orelse
     	    	    ?DEBUG("URL ~p Timedout, retrying~n", [Url]),
     	    	    erlsdb_util:sleep(1000),
 		    rest_request(SecretKey, Params, XmlParserFunc);

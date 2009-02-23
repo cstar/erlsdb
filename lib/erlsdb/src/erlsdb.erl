@@ -40,19 +40,19 @@
 %% External exports for APIs
 %%--------------------------------------------------------------------
 -export([
-	create_domain/0, 
+	create_domain/1, 
 	list_domains/0, 
-	list_domains/1, 
+    list_domains/1, 
 	list_domains/2, 
-	delete_domain/0, 
-	put_attributes/2, 
+	delete_domain/1, 
 	put_attributes/3, 
-	replace_attributes/2,
-	get_attributes/1, 
+	put_attributes/4, 
+	replace_attributes/3,
 	get_attributes/2, 
-	delete_item/1, 
-	delete_attributes/1, 
-	delete_attributes/2
+	get_attributes/3, 
+	delete_item/2, 
+	delete_attributes/2, 
+	delete_attributes/3
 	]).
 
 
@@ -99,8 +99,8 @@ shutdown() ->
 %% @spec create_domain() -> ok
 %% @end
 %%--------------------------------------------------------------------
-create_domain() ->
-    erlsdb_server:create_domain().
+create_domain(Domain) ->
+    erlsdb_server:create_domain(Domain).
 
 %%--------------------------------------------------------------------
 %% @doc List all domains for the account
@@ -143,8 +143,8 @@ list_domains(MoreToken, MaxNumberOfDomains) ->
 %% @spec delete_domain() -> ok
 %% @end
 %%--------------------------------------------------------------------
-delete_domain() ->
-    erlsdb_server:delete_domain(). 
+delete_domain(Domain) ->
+    erlsdb_server:delete_domain(Domain). 
 
 
 
@@ -157,8 +157,8 @@ delete_domain() ->
 %% @spec put_attributes(ItemName, Attributes) -> ok
 %% @end
 %%--------------------------------------------------------------------
-put_attributes(ItemName, Attributes) ->
-    erlsdb_server:put_attributes(ItemName, Attributes). 
+put_attributes(Domain,ItemName, Attributes) ->
+    erlsdb_server:put_attributes(Domain,ItemName, Attributes). 
 
 
 %%--------------------------------------------------------------------
@@ -172,8 +172,8 @@ put_attributes(ItemName, Attributes) ->
 %% @spec put_attributes(ItemName, Attributes, Replace) -> ok
 %% @end
 %%--------------------------------------------------------------------
-put_attributes(ItemName, Attributes, Replace) ->
-    erlsdb_server:put_attributes(ItemName, Attributes, Replace). 
+put_attributes(Domain, ItemName, Attributes, Replace) ->
+    erlsdb_server:put_attributes(Domain, ItemName, Attributes, Replace). 
 
 
 %%--------------------------------------------------------------------
@@ -185,8 +185,8 @@ put_attributes(ItemName, Attributes, Replace) ->
 %% @spec replace_attributes(ItemName, Attributes) -> ok
 %% @end
 %%--------------------------------------------------------------------
-replace_attributes(ItemName, Attributes) ->
-    erlsdb_server:replace_attributes(ItemName, Attributes). 
+replace_attributes(Domain,ItemName, Attributes) ->
+    erlsdb_server:replace_attributes(Domain, ItemName, Attributes). 
 
 
 %%--------------------------------------------------------------------
@@ -197,8 +197,8 @@ replace_attributes(ItemName, Attributes) ->
 %% @spec get_attributes(ItemName) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
-get_attributes(ItemName) ->
-    erlsdb_server:get_attributes(ItemName). 
+get_attributes(Domain,ItemName) ->
+    erlsdb_server:get_attributes(Domain,ItemName). 
 
 
 %%--------------------------------------------------------------------
@@ -210,8 +210,8 @@ get_attributes(ItemName) ->
 %% @spec get_attributes(ItemName, Attributes) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
-get_attributes(ItemName, AttributeNames) ->
-    erlsdb_server:get_attributes(ItemName, AttributeNames). 
+get_attributes(Domain,ItemName, AttributeNames) ->
+    erlsdb_server:get_attributes(Domain,ItemName, AttributeNames). 
 
 
 %%--------------------------------------------------------------------
@@ -223,8 +223,8 @@ get_attributes(ItemName, AttributeNames) ->
 %% @spec delete_item(ItemName) -> ok
 %% @end
 %%--------------------------------------------------------------------
-delete_item(ItemName) ->
-    erlsdb_server:delete_item(ItemName).
+delete_item(Domain,ItemName) ->
+    erlsdb_server:delete_item(Domain,ItemName).
 
 
 %%--------------------------------------------------------------------
@@ -235,8 +235,8 @@ delete_item(ItemName) ->
 %% @spec delete_attributes(ItemName) -> ok
 %% @end
 %%--------------------------------------------------------------------
-delete_attributes(ItemName) ->
-    erlsdb_server:delete_attributes(ItemName).
+delete_attributes(Domain,ItemName) ->
+    erlsdb_server:delete_attributes(Domain,ItemName).
 
 %%--------------------------------------------------------------------
 %% @doc Deletes all matching attributes for given item in domain
@@ -247,8 +247,8 @@ delete_attributes(ItemName) ->
 %% @spec delete_attributes(ItemName, AttributeNames) -> ok
 %% @end
 %%--------------------------------------------------------------------
-delete_attributes(ItemName, AttributeNames) ->
-    erlsdb_server:delete_attributes(ItemName, AttributeNames). 
+delete_attributes(Domain,ItemName, AttributeNames) ->
+    erlsdb_server:delete_attributes(Domain,ItemName, AttributeNames). 
 
 
 %%====================================================================
