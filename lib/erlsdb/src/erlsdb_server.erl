@@ -282,7 +282,7 @@ delete_attributes(Domain,ItemName, AttributeNames) ->
 %%--------------------------------------------------------------------
 init([Access, Secret]) ->
     ?DEBUG("******* erlsdb_server:init/1 starting~n", []),
-    {ok, #state{access_key=Access, secret_key=Secret}}.
+    {ok, #state{access_key=Access, secret_key=Secret, pending=gb_trees:empty()}}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_call/3
@@ -294,35 +294,64 @@ init([Access, Secret]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_call({list_domains, MoreToken, MaxNumberOfDomains}, _From, #state{access_key=AccessKey, secret_key = SecretKey} = State) ->
+handle_call({list_domains, MoreToken, MaxNumberOfDomains}, From, #state{access_key=AccessKey} = State) ->
     ?DEBUG("******* erlsdb_server:list_domains BEGIN~n", []),
     Base = base_parameters("ListDomains", AccessKey),
     Base1 = if MoreToken == nil -> Base; true -> Base ++ [["MoreToken", MoreToken]] end,
     Base2 = if MaxNumberOfDomains == nil -> Base1; true -> Base1 ++ [["MaxNumberOfDomains", MaxNumberOfDomains]] end,
-    Response = rest_request(
-	SecretKey, 
+    rest_request(
+	From, 
 	Base2,
 	fun(Xml) -> {ok, 
     	erlsdb_util:xml_values(xmerl_xpath:string("//DomainName/text()", Xml)),
     	erlsdb_util:xml_values(xmerl_xpath:string("//MoreToken/text()", Xml))} 
-	end),
-    {reply, Response, State};
+	end, State);
 
 
-handle_call({get_attributes, Domain, ItemName, AttributeNames}, _From, #state{access_key=AccessKey, secret_key = SecretKey} = State) ->
+handle_call({get_attributes, Domain, ItemName, AttributeNames}, From,  #state{access_key=AccessKey} = State) ->
     ?DEBUG("******* erlsdb_server:get_attributes~n", []),
     Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
 	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
 		base_parameters("GetAttributes", AccessKey)] ++
 		erlsdb_util:encode_attribute_names(AttributeNames),
 
-    Response = rest_request(
-	SecretKey, 
+    rest_request(
+	From, 
 	Base,
 	fun(Xml) -> {ok, 
-        erlsdb_util:xml_names_values(xmerl_xpath:string("//Attribute", Xml))} end),
-    {reply, Response, State};
+        erlsdb_util:xml_names_values(xmerl_xpath:string("//Attribute", Xml))} end,
+    State);
+    
+handle_call({create_domain, Domain}, From, #state{access_key=AccessKey} = State) -> 
+    ?DEBUG("******* erlsdb_server:create_domain ~p~n", [Domain]),
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)}| 
+		base_parameters("CreateDomain", AccessKey)],
+    rest_request(From, Base, fun(_Xml) -> nil end, State);
 
+
+handle_call({delete_domain, Domain}, From, #state{access_key=AccessKey} = State) -> 
+    ?DEBUG("******* erlsdb_server:delete_domain ~p~n", [Domain]),
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)}| 
+		base_parameters("DeleteDomain", AccessKey)],
+    rest_request(From, Base, fun(_Xml) -> nil end, State);
+
+
+handle_call({put_attributes,Domain, ItemName, Attributes, Replace},From,  #state{access_key=AccessKey } = State) -> 
+    ?DEBUG("******* erlsdb_server:put_attributes ~p~n", [Domain, ItemName, Attributes]),
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
+	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
+		base_parameters("PutAttributes", AccessKey)] ++
+		erlsdb_util:encode_attributes(Attributes),
+    Base1 = if Replace == false -> Base; true -> Base ++ [["Replace", "true"]] end,
+    rest_request(From, Base1, fun(_Xml) -> nil end, State);
+
+handle_call({delete_attributes, Domain, ItemName, AttributeNames},From,  #state{access_key=AccessKey} = State) -> 
+    ?DEBUG("******* erlsdb_server:delete_attributes ~p~n", [Domain, ItemName, AttributeNames]),
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
+	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
+		base_parameters("DeleteAttributes", AccessKey)] ++
+		erlsdb_util:encode_attribute_names(AttributeNames),
+    rest_request(From, Base, fun(_Xml) -> nil end, State);
 
 %%--------------------------------------------------------------------
 %% Function: handle_call/3
@@ -352,40 +381,7 @@ handle_cast(stop, State) ->
     {stop, normal, State};
 
     
-handle_cast({create_domain, Domain}, #state{access_key=AccessKey, secret_key = SecretKey } = State) -> 
-    ?DEBUG("******* erlsdb_server:create_domain ~p~n", [Domain]),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)}| 
-		base_parameters("CreateDomain", AccessKey)],
-    rest_request(SecretKey, Base, fun(_Xml) -> nil end),
-    {noreply, State};
 
-
-handle_cast({delete_domain, Domain}, #state{access_key=AccessKey, secret_key = SecretKey } = State) -> 
-    ?DEBUG("******* erlsdb_server:delete_domain ~p~n", [Domain]),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)}| 
-		base_parameters("DeleteDomain", AccessKey)],
-    rest_request(SecretKey, Base, fun(_Xml) -> nil end),
-    {noreply, State};
-
-
-handle_cast({put_attributes,Domain, ItemName, Attributes, Replace}, #state{access_key=AccessKey, secret_key = SecretKey } = State) -> 
-    ?DEBUG("******* erlsdb_server:put_attributes ~p~n", [Domain, ItemName, Attributes]),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
-	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
-		base_parameters("PutAttributes", AccessKey)] ++
-		erlsdb_util:encode_attributes(Attributes),
-    Base1 = if Replace == false -> Base; true -> Base ++ [["Replace", "true"]] end,
-    rest_request(SecretKey, Base1, fun(_Xml) -> nil end),
-    {noreply, State};
-
-handle_cast({delete_attributes, Domain, ItemName, AttributeNames}, #state{access_key=AccessKey, secret_key = SecretKey} = State) -> 
-    ?DEBUG("******* erlsdb_server:delete_attributes ~p~n", [Domain, ItemName, AttributeNames]),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
-	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
-		base_parameters("DeleteAttributes", AccessKey)] ++
-		erlsdb_util:encode_attribute_names(AttributeNames),
-    rest_request(SecretKey, Base, fun(_Xml) -> nil end),
-    {noreply, State};
 
 handle_cast(Msg, State) ->
     ?DEBUG("******* handle_cast unexpected message ~p, state ~p ~n", [Msg, State]),
@@ -399,6 +395,13 @@ handle_cast(Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
+handle_info({http,{RequestId,Response}},State = #state{pending=P}) ->
+	case gb_trees:lookup(RequestId,P) of
+		{value,{Client,RequestOp}} -> handle_http_response(Response,RequestOp,Client, State),
+						 {noreply,State#state{pending=gb_trees:delete(RequestId,P)}};
+		none -> {noreply,State}
+				%% the requestid isn't here, probably the request was deleted after a timeout
+	end;
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -421,35 +424,38 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 %%% Internal functions
 %%====================================================================
-rest_request(SecretKey, Params, XmlParserFunc) ->
+rest_request(From, Params, XmlParserFunc, #state{secret_key = SecretKey, pending=P} = State) ->
     Url = uri() ++ query_string(SecretKey, Params),
     ?DEBUG("******* Connecting to ~p ~n", [Url]),
-    Response = http:request(Url),
-    case Response of 
-        {ok, {{_HttpVersion, StatusCode, _ErrorMessage}, _Headers, Body }} ->
-    	    ?DEBUG("******* URL ~p Status ~p ~n", [Url, StatusCode]),
-            {Xml, _Rest} = xmerl_scan:string(Body),
+    {ok,RequestId} = http:request(get , {Url, []},[],[{sync,false}]),
+    Pendings = gb_trees:insert(RequestId,{From, XmlParserFunc},P),
+    {noreply, State#state{pending=Pendings}}.
+    
+
+handle_http_response(HttpResponse,RequestOp,Client, _State)->
+    case HttpResponse of 
+        {{_HttpVersion, StatusCode, _ErrorMessage}, _Headers, Body } ->
+    	    ?DEBUG("******* Status ~p ~n", [StatusCode]),
+            {Xml, _Rest} = xmerl_scan:string(binary_to_list(Body)),
     	    %%%io:format("********* Xml ~p~n", [Xml]),
             case StatusCode of
     	        200 ->
-	            XmlParserFunc(Xml);
+	            gen_server:reply(Client,RequestOp(Xml));
 	        _ ->
     		    [#xmlText{value=ErrorCode}]    = xmerl_xpath:string("//Error/Code/text()", Xml),
     		    [#xmlText{value=ErrorMessage}] = xmerl_xpath:string("//Error/Message/text()", Xml),
-    	            {error, ErrorCode, ErrorMessage}
+    	            gen_server:reply(Client,{error, ErrorCode, ErrorMessage})
             end;
         {error, ErrorMessage} ->
-	    case ErrorMessage of 
-		Error when  Error == timeout -> %Error == nxdomain orelse
-    	    	    ?DEBUG("URL ~p Timedout, retrying~n", [Url]),
-    	    	    erlsdb_util:sleep(1000),
-		    rest_request(SecretKey, Params, XmlParserFunc);
-		_ ->
-    	           {error, http_error, ErrorMessage}
-	    end
+	    %case ErrorMessage of 
+		%Error when  Error == timeout -> %Error == nxdomain orelse
+    	%    	    ?DEBUG("URL Timedout, retrying~n", []),
+    	%    	    erlsdb_util:sleep(1000),
+		%    rest_request(SecretKey, Params, XmlParserFunc);
+		%_ ->
+    	           gen_server:reply(Client,{error, http_error, ErrorMessage})
+	    %end
     end.
-
-
 query_string(SecretKey, Params) ->
     Params1 = lists:sort(
 	fun({A, _}, {X, _}) -> A < X end,
