@@ -39,6 +39,7 @@
 	xml_values/2,
 	xml_names_values/1,
 	xml_names_values/2,
+	parse_items/1,
 	xml_int/1,
 	sleep/1,
 	url_encode/1
@@ -162,7 +163,13 @@ xml_names_values(Xml, List) ->
     [ #xmlText{value=Value} ]  = xmerl_xpath:string("//Value/text()", Xml),
     [{Name, Value}|List].
 
-  
+parse_items(XML) ->
+  lists:foldr(fun(Item, Acc)->
+       [ #xmlText{value=Name} ] = xmerl_xpath:string("Name/text()", Item),
+       [{Name, xml_names_values(xmerl_xpath:string("Attribute", Item))}|Acc]
+      end, [], xmerl_xpath:string("//Item", XML)).
+
+    
 %%--------------------------------------------------------------------
 %% @doc sleep 
 %% <pre>

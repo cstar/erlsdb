@@ -28,12 +28,11 @@ Features
 - Multiple servers are ran (default : 5)
 - HTTP calls are asynchronous, per server.
 - SSL support enabled by default (for deactivating see example usage below)
-- Initial support for Query
+- Full support of the SimpleDB API version 2007-11-07
 
 TODO
 -----
 - Update documentation
-- Finish support for QueryWithAttributes and Select (only result parsing left)
 - The many little things that will make this library production-worthy.
 
 License
@@ -47,7 +46,7 @@ Type rake.
 The first time, you will need to edit erlang_config.rb.
 Re-run rake
 
-= RUNNING = 
+= A FEW EXAMPLES = 
 # SSL is deactivated in the following : 
 erl -boot release_local/erlsdb-initial -erlsdb access '"<AWS_ACCESS_ID>"' secret '"<AWS_SECRET_KEY>"' ssl false
 1> erlsdb:create_domain("fubar").
@@ -58,7 +57,30 @@ nil
 nil
 4> erlsdb:get_attributes("fubar", "test").
 {ok,[{"foo","bar"}]}
+..
+5> erlsdb:select("select count(*) from domain where toto = 'truc'",nil).
+{ok,[{"Domain",[{"Count","2"}]}],nil}
 
+6> erlsdb:domain_metadata("domain").
+{ok,[{"Timestamp",1235403601},
+     {"ItemCount",4},
+     {"AttributeValueCount",8},
+     {"AttributeNameCount",4},
+     {"ItemNamesSizeBytes",24},
+     {"AttributeValuesSizeBytes",20},
+     {"AttributeNamesSizeBytes",19}]}
+6> erlsdb:list_domains(nil,1). % paging works
+{ok,["domain"],"ZnViYXI="}
+7> erlsdb:list_domains("ZnViYXI=",1).
+{ok,["fubar"],nil}
+
+8> erlsdb:select("select count(*) from domain where toto = 'truc'",nil).
+{ok,[{"Domain",[{"Count","2"}]}],nil}
+
+9> erlsdb:select("select * from blobs where toto = 'truc'",nil).
+{ok,[{"blob1",[{"toto","truc"},{"foo","bar"}]},
+     {"blob2",[{"toto","truc"},{"foo","bar"}]}],
+    nil}
 = About building = 
 (Extract from charpi's readme)
 

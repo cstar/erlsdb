@@ -185,7 +185,7 @@ handle_call({qwa ,Domain, Query,  AttributeNames, MaxNumber, NextToken}, From, S
              {"MaxNumberOfItems", i2l(MaxNumber)}, {"NextToken", NextToken}|
 		     erlsdb_util:encode_attribute_names(AttributeNames)],
             fun(Xml) -> {ok, 
-    	            %erlsdb_util:xml_values(xmerl_xpath:string("//ItemName/text()", Xml)),
+    	            erlsdb_util:parse_items(Xml),
     	            parse_token(Xml)} 
 	end, State);
 	
@@ -193,7 +193,7 @@ handle_call({select,Query, NextToken}, From, State)->
     rest_request(From, "Select", 
             [{"SelectExpression", Query}, {"NextToken", NextToken}],
             fun(Xml) -> {ok, 
-    	%erlsdb_util:xml_values(xmerl_xpath:string("//ItemName/text()", Xml)),
+    	erlsdb_util:parse_items(Xml),
     	parse_token(Xml)} 
 	end, State);
 %%--------------------------------------------------------------------
@@ -289,14 +289,14 @@ handle_http_response(HttpResponse,RequestOp,Client, _State)->
     	            gen_server:reply(Client,{error, ErrorCode, ErrorMessage})
             end;
         {error, ErrorMessage} ->
-	    %case ErrorMessage of 
-		%Error when  Error == timeout -> %Error == nxdomain orelse
-    	%    	    ?DEBUG("URL Timedout, retrying~n", []),
-    	%    	    erlsdb_util:sleep(1000),
-		%    rest_request(SecretKey, Params, XmlParserFunc);
-		%_ ->
+	    case ErrorMessage of 
+		    %Error when  Error == timeout -> %Error == nxdomain orelse
+    	    %	    ?DEBUG("URL Timedout, retrying~n", []),
+    	    %	    erlsdb_util:sleep(1000),
+		    %rest_request(SecretKey, Params, XmlParserFunc);
+		_ ->
     	           gen_server:reply(Client,{error, http_error, ErrorMessage})
-	    %end
+	    end
     end.
 query_string(SecretKey, Params) ->
     Params1 = lists:filter(fun({_, nil}) -> false ; (_) -> true end, Params),

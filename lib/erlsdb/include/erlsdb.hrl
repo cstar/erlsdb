@@ -10,6 +10,6 @@
 
 
 %-define(DEBUG(Format, Args), io:format("D(~p:~p:~p) : " ++ Format ++ "~n",
--define(DEBUG(Format, Args), error_logger:info_msg("D(~p:~p:~p) : "++Format++"~n",
-				 [self(),?MODULE,?LINE]++Args)).
-
+%-define(DEBUG(Format, Args), error_logger:info_msg("D(~p:~p:~p) : "++Format++"~n",
+%				 [self(),?MODULE,?LINE]++Args)).
+-define(DEBUG(_Format, _Args), ok).
