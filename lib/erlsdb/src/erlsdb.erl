@@ -54,7 +54,10 @@
 	delete_item/2, 
 	delete_attributes/2, 
 	delete_attributes/3,
-	domain_metadata/1
+	domain_metadata/1,
+	q/4,
+	qwa/5,
+    select/2
 	]).
 
 
@@ -266,6 +269,17 @@ delete_attributes(Domain,ItemName) ->
 delete_attributes(Domain,ItemName, AttributeNames) ->
     Pid = pg2:get_closest_pid(erlsdb_servers),
     gen_server:call(Pid, {delete_attributes,Domain,ItemName,AttributeNames}).
+
+q(Domain, Query, MaxNumber, NextToken)->
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {q,Domain, Query, MaxNumber, NextToken}).
+qwa(Domain, Query, AttributeNames, MaxNumber, NextToken)->
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {qwa,Domain,Query, AttributeNames,  MaxNumber, NextToken}).
+
+select(Query, NextToken)->
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {select, Query, NextToken}).
 
 domain_metadata(Domain)->
     Pid = pg2:get_closest_pid(erlsdb_servers),

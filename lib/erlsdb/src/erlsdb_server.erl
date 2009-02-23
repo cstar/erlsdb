@@ -108,15 +108,13 @@ init([Access, Secret, SSL]) ->
 %%--------------------------------------------------------------------
 handle_call({list_domains, MoreToken, MaxNumberOfDomains}, From,State) ->
     ?DEBUG("******* erlsdb_server:list_domains BEGIN~n", []),
-    Base = if MoreToken == nil -> []; true -> [{"MoreToken", MoreToken}] end,
-    Base2 = if MaxNumberOfDomains == nil -> Base; true -> Base ++ [{"MaxNumberOfDomains", MaxNumberOfDomains}] end,
     rest_request(
 	From, 
 	"ListDomains",
-	Base2,
+	[{"MaxNumberOfDomains", i2l(MaxNumberOfDomains)},{"NextToken", MoreToken}],
 	fun(Xml) -> {ok, 
     	erlsdb_util:xml_values(xmerl_xpath:string("//DomainName/text()", Xml)),
-    	erlsdb_util:xml_values(xmerl_xpath:string("//MoreToken/text()", Xml))} 
+    	parse_token(Xml)} 
 	end, State);
 
 
@@ -173,6 +171,31 @@ handle_call({domain_metadata, Domain},From,  State) ->
             {"AttributeNamesSizeBytes", erlsdb_util:xml_int(xmerl_xpath:string("//AttributeNamesSizeBytes/text()", Xml))}]
             }
         end, State);
+        
+handle_call({q,Domain, Query, MaxNumber, NextToken}, From, State)->
+    rest_request(From, "Query", 
+            [{"DomainName", Domain}, {"QueryExpression", Query}, {"MaxNumberOfItems", i2l(MaxNumber)}, {"NextToken", NextToken}],
+            fun(Xml) -> {ok, 
+    	erlsdb_util:xml_values(xmerl_xpath:string("//ItemName/text()", Xml)),
+    	parse_token(Xml)} 
+	end, State);
+handle_call({qwa ,Domain, Query,  AttributeNames, MaxNumber, NextToken}, From, State)->
+    rest_request(From, "QueryWithAttributes", 
+            [{"DomainName", Domain}, {"QueryExpression", Query}, 
+             {"MaxNumberOfItems", i2l(MaxNumber)}, {"NextToken", NextToken}|
+		     erlsdb_util:encode_attribute_names(AttributeNames)],
+            fun(Xml) -> {ok, 
+    	            %erlsdb_util:xml_values(xmerl_xpath:string("//ItemName/text()", Xml)),
+    	            parse_token(Xml)} 
+	end, State);
+	
+handle_call({select,Query, NextToken}, From, State)->
+    rest_request(From, "Select", 
+            [{"SelectExpression", Query}, {"NextToken", NextToken}],
+            fun(Xml) -> {ok, 
+    	%erlsdb_util:xml_values(xmerl_xpath:string("//ItemName/text()", Xml)),
+    	parse_token(Xml)} 
+	end, State);
 %%--------------------------------------------------------------------
 %% Function: handle_call/3
 %% Description: Handling call messages
@@ -276,11 +299,12 @@ handle_http_response(HttpResponse,RequestOp,Client, _State)->
 	    %end
     end.
 query_string(SecretKey, Params) ->
-    Params1 = lists:sort(
+    Params1 = lists:filter(fun({_, nil}) -> false ; (_) -> true end, Params),
+    Params2 = lists:sort(
 	fun({A, _}, {X, _}) -> A < X end,
-	Params),
+	Params1),
     QueryStr = 
-	string:join(lists:foldr(fun query_string1/2, [], Params1), "&"),
+	string:join(lists:foldr(fun query_string1/2, [], Params2), "&"),
     SignatureData = "GET\nsdb.amazonaws.com\n/\n" ++ QueryStr,
     QueryStr ++ "&Signature=" ++ erlsdb_util:url_encode(signature(SecretKey, SignatureData)).
 
@@ -307,7 +331,15 @@ base_parameters(Action, AccessKey) ->
      {"Timestamp", erlsdb_util:create_timestamp()}].
 
 
+parse_token(Xml)->
+    case erlsdb_util:xml_values(xmerl_xpath:string("//NextToken/text()", Xml)) of
+        [] -> nil;
+        R -> hd(R)
+    end.
 
+i2l(nil) -> nil;
+i2l(I) when integer(I) -> integer_to_list(I);
+i2l(L) when list(L)    -> L.
 
 %%%-------------------------------------------------------------------
 %%% Configuration Functions %%%

@@ -21,13 +21,6 @@ Requirements
 
 - An Amazon Web Services account - See http://www.amazonaws.com
 
-Change Log
----------------
-
-v0.1 - 12/21/2007
-
-  - Initial release
-  - Added tests
 
 Features
 ---------
@@ -35,10 +28,12 @@ Features
 - Multiple servers are ran (default : 5)
 - HTTP calls are asynchronous, per server.
 - SSL support enabled by default (for deactivating see example usage below)
+- Initial support for Query
+
 TODO
 -----
 - Update documentation
-- Add support for Query QueryWithAttributes and Select
+- Finish support for QueryWithAttributes and Select (only result parsing left)
 - The many little things that will make this library production-worthy.
 
 License
@@ -53,7 +48,7 @@ The first time, you will need to edit erlang_config.rb.
 Re-run rake
 
 = RUNNING = 
-
+# SSL is deactivated in the following : 
 erl -boot release_local/erlsdb-initial -erlsdb access '"<AWS_ACCESS_ID>"' secret '"<AWS_SECRET_KEY>"' ssl false
 1> erlsdb:create_domain("fubar").
 nil
