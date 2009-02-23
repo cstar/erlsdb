@@ -81,11 +81,9 @@
 %% @spec start_link() -> {ok, pid()} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-start_link(InitialState) ->
-    crypto:start(),
-    inets:start(),
+start_link(Args) ->
     %%?DEBUG("******* erlsdb_server:start_link/1 starting~n", [InitialState]),
-    gen_server:start_link({local, ?SERVER}, ?MODULE, InitialState, []).
+    gen_server:start_link({local, ?SERVER}, ?MODULE, Args, []).
 
 %%--------------------------------------------------------------------
 %% @doc Stops the server.
@@ -283,9 +281,9 @@ delete_attributes(ItemName, AttributeNames) ->
 %%          ignore               |
 %%          {stop, Reason}
 %%--------------------------------------------------------------------
-init([InitialState]) ->
-    ?DEBUG("******* erlsdb_server:init/1 starting~n", [InitialState]),
-    {ok, InitialState}.
+init([Access, Secret]) ->
+    ?DEBUG("******* erlsdb_server:init/1 starting~n", []),
+    {ok, #state{access_key=Access, secret_key=Secret}}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_call/3
@@ -297,7 +295,7 @@ init([InitialState]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_call({list_domains, MoreToken, MaxNumberOfDomains}, _From, #sdb_state{access_key=AccessKey, secret_key = SecretKey} = State) ->
+handle_call({list_domains, MoreToken, MaxNumberOfDomains}, _From, #state{access_key=AccessKey, secret_key = SecretKey} = State) ->
     ?DEBUG("******* erlsdb_server:list_domains BEGIN~n", []),
     Base = base_parameters("ListDomains", AccessKey),
     Base1 = if MoreToken == nil -> Base; true -> Base ++ [["MoreToken", MoreToken]] end,
@@ -312,7 +310,7 @@ handle_call({list_domains, MoreToken, MaxNumberOfDomains}, _From, #sdb_state{acc
     {reply, Response, State};
 
 
-handle_call({get_attributes, ItemName, AttributeNames}, _From, #sdb_state{access_key=AccessKey, secret_key = SecretKey, domain = Domain} = State) ->
+handle_call({get_attributes, Domain, ItemName, AttributeNames}, _From, #state{access_key=AccessKey, secret_key = SecretKey} = State) ->
     ?DEBUG("******* erlsdb_server:get_attributes~n", []),
     Base = [["DomainName", erlsdb_util:url_encode(Domain)],
 	    ["ItemName", erlsdb_util:url_encode(ItemName)]|
@@ -355,36 +353,36 @@ handle_cast(stop, State) ->
     {stop, normal, State};
 
     
-handle_cast({create_domain}, #sdb_state{access_key=AccessKey, secret_key = SecretKey, domain = Domain} = State) -> 
+handle_cast({create_domain, Domain}, #state{access_key=AccessKey, secret_key = SecretKey } = State) -> 
     ?DEBUG("******* erlsdb_server:create_domain ~p~n", [Domain]),
-    Base = [["DomainName", erlsdb_util:url_encode(Domain)]| 
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)}| 
 		base_parameters("CreateDomain", AccessKey)],
     rest_request(SecretKey, Base, fun(_Xml) -> nil end),
     {noreply, State};
 
 
-handle_cast({delete_domain}, #sdb_state{access_key=AccessKey, secret_key = SecretKey, domain = Domain} = State) -> 
+handle_cast({delete_domain, Domain}, #state{access_key=AccessKey, secret_key = SecretKey } = State) -> 
     ?DEBUG("******* erlsdb_server:delete_domain ~p~n", [Domain]),
-    Base = [["DomainName", erlsdb_util:url_encode(Domain)]| 
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)}| 
 		base_parameters("DeleteDomain", AccessKey)],
     rest_request(SecretKey, Base, fun(_Xml) -> nil end),
     {noreply, State};
 
 
-handle_cast({put_attributes, ItemName, Attributes, Replace}, #sdb_state{access_key=AccessKey, secret_key = SecretKey, domain = Domain} = State) -> 
+handle_cast({put_attributes,Domain, ItemName, Attributes, Replace}, #state{access_key=AccessKey, secret_key = SecretKey } = State) -> 
     ?DEBUG("******* erlsdb_server:put_attributes ~p~n", [Domain, ItemName, Attributes]),
-    Base = [["DomainName", erlsdb_util:url_encode(Domain)],
-	    ["ItemName", erlsdb_util:url_encode(ItemName)]|
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
+	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
 		base_parameters("PutAttributes", AccessKey)] ++
 		erlsdb_util:encode_attributes(Attributes),
     Base1 = if Replace == false -> Base; true -> Base ++ [["Replace", "true"]] end,
     rest_request(SecretKey, Base1, fun(_Xml) -> nil end),
     {noreply, State};
 
-handle_cast({delete_attributes, ItemName, AttributeNames}, #sdb_state{access_key=AccessKey, secret_key = SecretKey, domain = Domain} = State) -> 
+handle_cast({delete_attributes, Domain, ItemName, AttributeNames}, #state{access_key=AccessKey, secret_key = SecretKey} = State) -> 
     ?DEBUG("******* erlsdb_server:delete_attributes ~p~n", [Domain, ItemName, AttributeNames]),
-    Base = [["DomainName", erlsdb_util:url_encode(Domain)],
-	    ["ItemName", erlsdb_util:url_encode(ItemName)]|
+    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
+	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
 		base_parameters("DeleteAttributes", AccessKey)] ++
 		erlsdb_util:encode_attribute_names(AttributeNames),
     rest_request(SecretKey, Base, fun(_Xml) -> nil end),
@@ -443,7 +441,7 @@ rest_request(SecretKey, Params, XmlParserFunc) ->
             end;
         {error, ErrorMessage} ->
 	    case ErrorMessage of 
-		timeout ->
+		Error when Error == nxdomain orelse Error == timeout ->
     	    	    ?DEBUG("URL ~p Timedout, retrying~n", [Url]),
     	    	    erlsdb_util:sleep(1000),
 		    rest_request(SecretKey, Params, XmlParserFunc);
@@ -455,34 +453,34 @@ rest_request(SecretKey, Params, XmlParserFunc) ->
 
 query_string(SecretKey, Params) ->
     Params1 = lists:sort(
-	fun([Elem1, _], [Elem2, _]) -> 
-	    string:to_lower(Elem1) > string:to_lower(Elem2) end,
+	fun({A, _}, {X, _}) -> A < X end,
 	Params),
-    {QueryStr, SignatureData} = 
-	lists:foldr(fun query_string1/2, {"", ""}, Params1),
-    QueryStr ++ "Signature=" ++ erlsdb_util:url_encode(signature(SecretKey, SignatureData)).
+    QueryStr = 
+	string:join(lists:foldr(fun query_string1/2, [], Params1), "&"),
+    SignatureData = "GET\nsdb.amazonaws.com\n/\n" ++ QueryStr,
+    QueryStr ++ "&Signature=" ++ erlsdb_util:url_encode(signature(SecretKey, SignatureData)).
 
 
-query_string1([Key, Value], {QueryStr, SignatureData}) ->
-    QueryStr1 = QueryStr ++ Key ++ "=" ++ erlsdb_util:url_encode(Value) ++ "&",
-    SignatureData1 = SignatureData ++ Key ++ Value,
-    {QueryStr1, SignatureData1}.
+query_string1({Key, Value}, Query) ->
+    [Key ++ "=" ++ erlsdb_util:url_encode(Value) | Query].
 
 
 %%%
 % Returns HMAC encoded access key
 %%%
 signature(SecretKey, Data) ->
-    erlsdb_util:hmac(SecretKey, Data).
+    binary_to_list(
+        base64:encode(crypto:sha_mac(SecretKey, Data))).
 
 
 
 base_parameters(Action, AccessKey) ->
-    [["Action", Action],
-     ["AWSAccessKeyId", AccessKey],
-     ["Version", version()],
-     ["SignatureVersion", "1"],
-     ["Timestamp", erlsdb_util:timestamp()]].
+    [{"Action", Action},
+     {"AWSAccessKeyId", AccessKey},
+     {"Version", version()},
+     {"SignatureVersion", "2"},
+     {"SignatureMethod", "HmacSHA1"},
+     {"Timestamp", erlsdb_util:create_timestamp()}].
 
 
 
@@ -496,5 +494,5 @@ uri() ->
 
 version() ->
    %"2007-11-07".
-   "2007-02-09".
+   "2007-11-07".
 

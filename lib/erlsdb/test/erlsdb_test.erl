@@ -46,7 +46,7 @@ test_list_domains() ->
     erlsdb:list_domains().
 
 test_create_test_domain() ->
-    erlsdb:create_domain(),
+    erlsdb:create_domain(test_domain()),
     {ok, List, _} = erlsdb:list_domains(),
     Domain = test_domain(),
     [Domain] = lists:filter(
@@ -55,7 +55,7 @@ test_create_test_domain() ->
 
 
 test_delete_test_domain() ->
-    erlsdb:delete_domain(),
+    erlsdb:delete_domain(test_domain()),
     {ok, List, _} = erlsdb:list_domains(),
     Domain = test_domain(),
     [] = lists:filter(
@@ -63,7 +63,7 @@ test_delete_test_domain() ->
 			List).
 
 test_replace_get_attributes() ->
-    erlsdb:create_domain(),
+    erlsdb:create_domain(test_domain()),
     Attributes = lists:sort([
 	["StreetAddress", "705 5th Ave"],
         ["City", "Seattle"],
@@ -80,7 +80,7 @@ test_replace_get_attributes() ->
      end.
 
 test_replace_delete_attributes() ->
-    erlsdb:create_domain(),
+    erlsdb:create_domain(test_domain()),
     Attributes = lists:sort([
 	["StreetAddress", "705 5th Ave"],
         ["City", "Seattle"],
@@ -98,7 +98,7 @@ test_replace_delete_attributes() ->
             io:format("Unexpected response while getting attributes after delete ~p~n", [Response])
      end.
 
-test_gmt_difference([AccessKey, SecretKey]) ->
+test_gmt_difference() ->
     "-08:00" = erlsdb_util:gmt_difference().
 
 test([AccessKey, SecretKey]) ->
@@ -106,14 +106,9 @@ test([AccessKey, SecretKey]) ->
     %debug_helper:trace(erlsdb_server),
     %%%application:load(erlsdb),
     %%%application:start(erlsdb),
-    Response = erlsdb:start(type, 
-    	[#sdb_state{
-		access_key = AccessKey,
-		secret_key = SecretKey,
-		domain = test_domain()
-		}
-	]),
+    Response = erlsdb:start(type, [AccessKey,SecretKey]),
     io:format("Test Started server ~p~n", [Response]),
+    test_list_domains(),
     test_create_test_domain(),
     test_delete_test_domain(),
     test_replace_get_attributes(),

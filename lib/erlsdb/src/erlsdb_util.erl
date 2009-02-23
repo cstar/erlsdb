@@ -32,9 +32,7 @@
 	encode_attribute_names/2,
 	two_digit/1,
 	abs_two_digit/1,
-	timestamp/0,
-	gmt_difference/0,
-	hmac/2,
+	create_timestamp/0,
 	xml_values/1,
 	xml_values/2,
 	xml_names_values/1,
@@ -120,55 +118,15 @@ abs_two_digit(X) when X >= 0 ->
 %% @spec encode_attributes(Attributes) -> ok
 %% @end
 %%--------------------------------------------------------------------
-timestamp() ->
-    {{_, _, _}, {_LocalHour, _LocalMin, _}} = LocalDateTime = calendar:local_time(),
-    [{{Year, Month, Day}, {Hour, Min, Sec}}] = 
-	calendar:local_time_to_universal_time_dst(LocalDateTime),
-    Z = gmt_difference(),
-    integer_to_list(Year) ++ "-" ++ two_digit(Month) ++ "-" ++ two_digit(Day) 
-	++ "T" ++ two_digit(Hour) ++ ":" ++ two_digit(Min) ++ ":" ++ 
-	two_digit(Sec) ++ Z.
+% lifted from http://code.google.com/p/erlawys/source/browse/trunk/src/aws_util.erl
+create_timestamp() -> create_timestamp(calendar:now_to_universal_time(now())).
+create_timestamp({{Y, M, D}, {H, Mn, S}}) ->
+	to_str(Y) ++ "-" ++ to_str(M) ++ "-" ++ to_str(D) ++ "T" ++
+	to_str(H) ++ ":" ++ to_str(Mn)++ ":" ++ to_str(S) ++ "Z".
+add_zeros(L) -> if length(L) == 1 -> [$0|L]; true -> L end.
+to_str(L) -> add_zeros(integer_to_list(L)).
 
 
-%%--------------------------------------------------------------------
-%% @doc gmt_difference -- TODO
-%% <pre>
-%% Types:
-%% </pre>
-%% @spec gmt_difference() -> string
-%% @end
-%%--------------------------------------------------------------------
-gmt_difference() ->
-    UTC = calendar:universal_time(),
-    Local = calendar:universal_time_to_local_time(UTC),
-    gmt_difference((calendar:datetime_to_gregorian_seconds(Local) -  calendar:datetime_to_gregorian_seconds(UTC)) / 3600).
-gmt_difference(Diff) when Diff < 0 ->
-    gmt_difference(-Diff, "-");
-gmt_difference(Diff) ->
-    gmt_difference(Diff, "+").
-
-gmt_difference(Diff, Sign) when Diff < 10 ->
-    gmt_difference1(float_to_list(Diff), Sign ++ "0");
-gmt_difference(Diff, Sign) ->
-    gmt_difference1(float_to_list(Diff), Sign).
-gmt_difference1(StrDiff, SignZero) ->
-    Index = string:chr(StrDiff, $.),
-    SignZero ++ string:substr(StrDiff, 1, Index-1) ++ ":" ++ string:substr(StrDiff, Index+1, 2).
-
-
-%%--------------------------------------------------------------------
-%% @doc hmac
-%% <pre>
-%% Types:
-%%  SecretKey = string
-%%  Data = string
-%% </pre>
-%% @spec hmac(SecretKey, Data) -> string
-%% @end
-%%--------------------------------------------------------------------
-hmac(SecretKey, Data) ->
-    base64:encode(
-          binary_to_list(crypto:sha_mac(SecretKey, Data))).
 
 
 %%--------------------------------------------------------------------
@@ -216,7 +174,7 @@ sleep(T) ->
 
 
 %%--------------------------------------------------------------------
-%% @doc url_encode - borrowed from CouchDB
+%% @doc url_encode - lifted from the ever precious yaws_utils.erl    
 %% <pre>
 %% Types:
 %%  String
@@ -232,17 +190,33 @@ url_encode([H|T]) ->
             [H|url_encode(T)];
         H >= $0, $9 >= H ->
             [H|url_encode(T)];
-        H == $_; H == $.; H == $-; H == $: ->
+        H == $_; H == $.; H == $-; H == $/ -> % FIXME: more..
             [H|url_encode(T)];
         true ->
-            case lists:flatten(io_lib:format("~.16.0B", [H])) of
+            case integer_to_hex(H) of
                 [X, Y] ->
                     [$%, X, Y | url_encode(T)];
                 [X] ->
                     [$%, $0, X | url_encode(T)]
             end
-    end;
+     end;
+
 url_encode([]) ->
     [].
+integer_to_hex(I) ->
+    case catch erlang:integer_to_list(I, 16) of
+        {'EXIT', _} ->
+            old_integer_to_hex(I);
+        Int ->
+            Int
+    end.
+
+old_integer_to_hex(I) when I<10 ->
+    integer_to_list(I);
+old_integer_to_hex(I) when I<16 ->
+    [I-10+$A];
+old_integer_to_hex(I) when I>=16 ->
+    N = trunc(I/16),
+    old_integer_to_hex(N) ++ old_integer_to_hex(I rem 16).
 
 

@@ -1,9 +1,10 @@
+
 %%%-------------------------------------------------------------------
 %%% @doc This header defines common record definitions
 %%% @end
 %%%-------------------------------------------------------------------
 
--record(sdb_state, {access_key, secret_key, domain}).
+-record(state, {access_key, secret_key}).
 
 -record(response, {box_usage, more_token, xml}).
 

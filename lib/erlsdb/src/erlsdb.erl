@@ -72,9 +72,11 @@
 %% @spec start(Type, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-start(_Type, StartArgs) ->
+start(_Type, _StartArgs) ->
     %case erlsdb_sup:start_link(StartArgs) of
-    case erlsdb_server:start_link(StartArgs) of
+    ID = param(access),
+    Secret = param(secret),
+    case erlsdb_server:start_link([ID, Secret]) of
 	{ok, Pid} -> 
 	    {ok, Pid};
 	Error ->
@@ -258,3 +260,12 @@ delete_attributes(ItemName, AttributeNames) ->
 %%--------------------------------------------------------------------
 stop(_State) ->
     ok.
+
+
+param(Name, Default)->
+	case application:get_env(?MODULE, Name) of
+		{ok, Value} -> Value;
+		_-> Default
+	end.
+
+param(Name) -> param(Name, nil).
