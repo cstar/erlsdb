@@ -1,0 +1,9 @@
+{application, erlsdb,
+ [{description, "Access to SimpleDB"},
+  {author, "Eric Cestari"},
+  {vsn, %VSN%},
+  {modules, %MODULES%},
+  {mod, {erlsdb,[]}},
+  {registered, [erlsdb_sup]},
+  {applications, [kernel, stdlib, sasl, crypto, xmerl]}
+ ]}.

@@ -1,0 +1,11 @@
+%% -*-erlang-*-   ; 
+{release,
+ {"sample_rake", ""},
+ {erts, "_"},
+ [{kernel, "_"},
+  {stdlib, "_"},
+  {sasl, "_"},
+  {crypto, "_"},
+  {xmerl, "_"},
+  {erlsdb, "_"}]
+}.

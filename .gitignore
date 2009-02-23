@@ -1,1 +1,6 @@
 releases
+release_local
+lib/erlsdb/test/*.beam
+lib/*/ebin
+erlang_config.rb
+.depend_erlang.mf
