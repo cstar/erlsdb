@@ -32,7 +32,7 @@
 %% External exports
 %%--------------------------------------------------------------------
 -export([
-	start_link/2,
+	start_link/3,
 	stop/0
 	]).
 
@@ -68,9 +68,9 @@
 %% @spec start_link() -> {ok, pid()} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Access, Secret) ->
+start_link(Access, Secret, SSL) ->
     %%?DEBUG("******* erlsdb_server:start_link/1 starting~n", [InitialState]),
-    gen_server:start_link(?MODULE, [Access, Secret], []).
+    gen_server:start_link(?MODULE, [Access, Secret, SSL], []).
 
 %%--------------------------------------------------------------------
 %% @doc Stops the server.
@@ -92,9 +92,9 @@ stop() ->
 %%          ignore               |
 %%          {stop, Reason}
 %%--------------------------------------------------------------------
-init([Access, Secret]) ->
+init([Access, Secret, SSL]) ->
     ?DEBUG("******* erlsdb_server:init/1 starting~n", []),
-    {ok, #state{access_key=Access, secret_key=Secret, pending=gb_trees:empty()}}.
+    {ok, #state{ssl = SSL,access_key=Access, secret_key=Secret, pending=gb_trees:empty()}}.
 
 %%--------------------------------------------------------------------
 %% Function: handle_call/3
@@ -106,13 +106,13 @@ init([Access, Secret]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_call({list_domains, MoreToken, MaxNumberOfDomains}, From, #state{access_key=AccessKey} = State) ->
+handle_call({list_domains, MoreToken, MaxNumberOfDomains}, From,State) ->
     ?DEBUG("******* erlsdb_server:list_domains BEGIN~n", []),
-    Base = base_parameters("ListDomains", AccessKey),
-    Base1 = if MoreToken == nil -> Base; true -> Base ++ [["MoreToken", MoreToken]] end,
-    Base2 = if MaxNumberOfDomains == nil -> Base1; true -> Base1 ++ [["MaxNumberOfDomains", MaxNumberOfDomains]] end,
+    Base = if MoreToken == nil -> []; true -> [{"MoreToken", MoreToken}] end,
+    Base2 = if MaxNumberOfDomains == nil -> Base; true -> Base ++ [{"MaxNumberOfDomains", MaxNumberOfDomains}] end,
     rest_request(
 	From, 
+	"ListDomains",
 	Base2,
 	fun(Xml) -> {ok, 
     	erlsdb_util:xml_values(xmerl_xpath:string("//DomainName/text()", Xml)),
@@ -120,51 +120,59 @@ handle_call({list_domains, MoreToken, MaxNumberOfDomains}, From, #state{access_k
 	end, State);
 
 
-handle_call({get_attributes, Domain, ItemName, AttributeNames}, From,  #state{access_key=AccessKey} = State) ->
+handle_call({get_attributes, Domain, ItemName, AttributeNames}, From,  State) ->
     ?DEBUG("******* erlsdb_server:get_attributes~n", []),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
-	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
-		base_parameters("GetAttributes", AccessKey)] ++
-		erlsdb_util:encode_attribute_names(AttributeNames),
-
+    Base = [{"DomainName", Domain},
+	    {"ItemName", ItemName} |
+		erlsdb_util:encode_attribute_names(AttributeNames)],
     rest_request(
 	From, 
+	"GetAttributes",
 	Base,
 	fun(Xml) -> {ok, 
         erlsdb_util:xml_names_values(xmerl_xpath:string("//Attribute", Xml))} end,
     State);
     
-handle_call({create_domain, Domain}, From, #state{access_key=AccessKey} = State) -> 
+handle_call({create_domain, Domain}, From, State) -> 
     ?DEBUG("******* erlsdb_server:create_domain ~p~n", [Domain]),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)}| 
-		base_parameters("CreateDomain", AccessKey)],
-    rest_request(From, Base, fun(_Xml) -> nil end, State);
+    Base = [{"DomainName", Domain}],
+    rest_request(From, "CreateDomain",Base, fun(_Xml) -> ok end, State);
 
 
-handle_call({delete_domain, Domain}, From, #state{access_key=AccessKey} = State) -> 
+handle_call({delete_domain, Domain}, From,State) -> 
     ?DEBUG("******* erlsdb_server:delete_domain ~p~n", [Domain]),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)}| 
-		base_parameters("DeleteDomain", AccessKey)],
-    rest_request(From, Base, fun(_Xml) -> nil end, State);
+    Base = [{"DomainName", Domain}],
+    rest_request(From,"DeleteDomain", Base, fun(_Xml) -> ok end, State);
 
 
-handle_call({put_attributes,Domain, ItemName, Attributes, Replace},From,  #state{access_key=AccessKey } = State) -> 
+handle_call({put_attributes,Domain, ItemName, Attributes, Replace},From,  State) -> 
     ?DEBUG("******* erlsdb_server:put_attributes ~p~n", [Domain, ItemName, Attributes]),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
-	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
-		base_parameters("PutAttributes", AccessKey)] ++
-		erlsdb_util:encode_attributes(Attributes),
-    Base1 = if Replace == false -> Base; true -> Base ++ [["Replace", "true"]] end,
-    rest_request(From, Base1, fun(_Xml) -> nil end, State);
+    Base = [{"DomainName", Domain},
+	    {"ItemName", ItemName}|
+		erlsdb_util:encode_attributes(Attributes)],
+    Base1 = if Replace == false -> Base; true -> Base ++ [{"Replace", "true"}] end,
+    rest_request(From, "PutAttributes", Base1, fun(_Xml) -> ok end, State);
 
-handle_call({delete_attributes, Domain, ItemName, AttributeNames},From,  #state{access_key=AccessKey} = State) -> 
+handle_call({delete_attributes, Domain, ItemName, AttributeNames},From,  State) -> 
     ?DEBUG("******* erlsdb_server:delete_attributes ~p~n", [Domain, ItemName, AttributeNames]),
-    Base = [{"DomainName", erlsdb_util:url_encode(Domain)},
-	    {"ItemName", erlsdb_util:url_encode(ItemName)}|
-		base_parameters("DeleteAttributes", AccessKey)] ++
-		erlsdb_util:encode_attribute_names(AttributeNames),
-    rest_request(From, Base, fun(_Xml) -> nil end, State);
+    Base = [{"DomainName", Domain},
+	    {"ItemName", ItemName} |
+		erlsdb_util:encode_attribute_names(AttributeNames)],
+    rest_request(From, "DeleteAttributes", Base, fun(_Xml) -> ok end, State);
 
+handle_call({domain_metadata, Domain},From,  State) ->
+    rest_request(From, "DomainMetadata", [{"DomainName", Domain}], 
+        fun(Xml) ->
+            {ok,
+           [{"Timestamp", erlsdb_util:xml_int(xmerl_xpath:string("//Timestamp/text()", Xml))},
+            {"ItemCount", erlsdb_util:xml_int(xmerl_xpath:string("//ItemCount/text()", Xml))},
+            {"AttributeValueCount", erlsdb_util:xml_int(xmerl_xpath:string("//AttributeValueCount/text()", Xml))},
+            {"AttributeNameCount", erlsdb_util:xml_int(xmerl_xpath:string("//AttributeNameCount/text()", Xml))},
+            {"ItemNamesSizeBytes", erlsdb_util:xml_int(xmerl_xpath:string("//ItemNamesSizeBytes/text()", Xml))},
+            {"AttributeValuesSizeBytes", erlsdb_util:xml_int(xmerl_xpath:string("//AttributeValuesSizeBytes/text()", Xml))},
+            {"AttributeNamesSizeBytes", erlsdb_util:xml_int(xmerl_xpath:string("//AttributeNamesSizeBytes/text()", Xml))}]
+            }
+        end, State);
 %%--------------------------------------------------------------------
 %% Function: handle_call/3
 %% Description: Handling call messages
@@ -192,9 +200,6 @@ handle_call(Request, From, State) ->
 handle_cast(stop, State) ->
     {stop, normal, State};
 
-    
-
-
 handle_cast(Msg, State) ->
     ?DEBUG("******* handle_cast unexpected message ~p, state ~p ~n", [Msg, State]),
     {noreply, State}.
@@ -208,6 +213,7 @@ handle_cast(Msg, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
 handle_info({http,{RequestId,Response}},State = #state{pending=P}) ->
+    ?DEBUG("******* Response :  ~p~n", [Response]),
 	case gb_trees:lookup(RequestId,P) of
 		{value,{Client,RequestOp}} -> handle_http_response(Response,RequestOp,Client, State),
 						 {noreply,State#state{pending=gb_trees:delete(RequestId,P)}};
@@ -236,10 +242,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 %%% Internal functions
 %%====================================================================
-rest_request(From, Params, XmlParserFunc, #state{secret_key = SecretKey, pending=P} = State) ->
-    Url = uri() ++ query_string(SecretKey, Params),
+rest_request(From, Action, Params, XmlParserFunc, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P} = State) ->
+    FullParams = Params ++ base_parameters(Action, AccessKey),
+    Url = uri(SSL) ++ query_string(SecretKey, FullParams),
     ?DEBUG("******* Connecting to ~p ~n", [Url]),
-    {ok,RequestId} = http:request(get , {Url, []},[],[{sync,false}]),
+    {ok,RequestId} = http:request(get , {Url, []},[{timeout, ?TIMEOUT}],[{sync,false}]),
     Pendings = gb_trees:insert(RequestId,{From, XmlParserFunc},P),
     {noreply, State#state{pending=Pendings}}.
     
@@ -305,9 +312,10 @@ base_parameters(Action, AccessKey) ->
 %%%-------------------------------------------------------------------
 %%% Configuration Functions %%%
 %%%-------------------------------------------------------------------
-uri() ->
-   "http://sdb.amazonaws.com/?".
-
+uri(false) ->
+   "http://sdb.amazonaws.com/?";
+uri(true) ->
+   "https://sdb.amazonaws.com/?".
 
 version() ->
    "2007-11-07".

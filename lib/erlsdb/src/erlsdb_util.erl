@@ -22,6 +22,7 @@
 -author("Shahzad Bhatti <bhatti@plexobject.com> [http://bhatti.plexobject.com]").
 -author("Eric Cestari <ecestari@mac.com> [http://www.cestari.info]").
 -include_lib("xmerl/include/xmerl.hrl").
+-include("../include/erlsdb.hrl").
 
 %%%-------------------------------------------------------------------
 %%% Public APIs
@@ -38,6 +39,7 @@
 	xml_values/2,
 	xml_names_values/1,
 	xml_names_values/2,
+	xml_int/1,
 	sleep/1,
 	url_encode/1
 	]).
@@ -138,7 +140,7 @@ to_str(L) -> add_zeros(integer_to_list(L)).
 %%  SecretKey = string
 %%  Data = string
 %% </pre>
-%% @spec gmt_difference() -> string
+%%
 %% @end
 %%--------------------------------------------------------------------
 xml_values(List) ->
@@ -147,6 +149,10 @@ xml_values(List) ->
 xml_values(#xmlText{value=Value}, List) ->
     [Value|List].
 
+%only use when you are sure there's only one value.
+xml_int([#xmlText{value=Int}])->
+    {ok,[Value],_}=io_lib:fread("~d", Int),
+    Value.
     
 xml_names_values(List) ->
     lists:foldr(fun xml_names_values/2, [], List).

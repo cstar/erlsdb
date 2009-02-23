@@ -4,7 +4,7 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--record(state, {access_key, secret_key, pending}).
+-record(state, {ssl,access_key, secret_key, pending}).
 
 -record(response, {box_usage, more_token, xml}).
 

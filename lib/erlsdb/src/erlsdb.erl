@@ -53,7 +53,8 @@
 	get_attributes/3, 
 	delete_item/2, 
 	delete_attributes/2, 
-	delete_attributes/3
+	delete_attributes/3,
+	domain_metadata/1
 	]).
 
 
@@ -77,12 +78,16 @@ start(_Type, _StartArgs) ->
     %case erlsdb_sup:start_link(StartArgs) of
     ID = param(access),
     Secret = param(secret),
+    SSL = param(ssl, true),
+    if SSL == true -> ssl:start();
+        true -> ok
+    end,
     N = param(workers, 5),
-    {ok,SupPid} = erlsdb_sup:start_link([ID, Secret]),
+    {ok,SupPid} = erlsdb_sup:start_link([ID, Secret, SSL]),
     pg2:create(erlsdb_servers),
 	lists:map(
 	  fun(_) ->
-		  {ok, Pid} =  supervisor:start_child(SupPid,[]) of
+		  {ok, Pid} =  supervisor:start_child(SupPid,[]),
 		  pg2:join(erlsdb_servers, Pid)
 	  end, lists:seq(1, N)),
 	 {ok,SupPid}.
@@ -173,7 +178,7 @@ put_attributes(Domain,ItemName, Attributes) ->
 %% @doc Adds an item (tuple) to the domain
 %% Types:
 %%  ItemName = string
-%%  Attributes = array of key/value [[key1, value1], [key2, value2]...]
+%%  Attributes = array of key/value [{key1, value1}, {key2, value2}...]
 %%  Replace = boolean - if true existing attributes will be replaced, 
 %%		otherwise they will be appended.
 %% </pre>
@@ -189,7 +194,7 @@ put_attributes(Domain, ItemName, Attributes, Replace) ->
 %% @doc Replace an existing item with specified attributes
 %% Types:
 %%  ItemName = string
-%%  Attributes = array of key/value [[key1, value1], [key2, value2]...]
+%%  Attributes = array of key/value [{key1, value1}, {key2, value2}...]
 %% </pre>
 %% @spec replace_attributes(ItemName, Attributes) -> ok
 %% @end
@@ -203,7 +208,7 @@ replace_attributes(Domain,ItemName, Attributes) ->
 %% Types:
 %%  ItemName = string
 %% </pre>
-%% @spec get_attributes(ItemName) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
+%% @spec get_attributes(ItemName) -> {ok, [{key1, value1}, {key2, value2}, ..]} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
 get_attributes(Domain,ItemName) ->
@@ -216,7 +221,7 @@ get_attributes(Domain,ItemName) ->
 %%  ItemName = string
 %%  Attributes = array of keys [key1, key2, ...]
 %% </pre>
-%% @spec get_attributes(ItemName, Attributes) -> {ok, [[key1, value1], [key2, value2], ..]} | {error, {ErrorCode, ErrorMessage}
+%% @spec get_attributes(ItemName, Attributes) -> {ok, [{key1, value1}, {key2, value2}, ..]} | {error, {ErrorCode, ErrorMessage}
 %% @end
 %%--------------------------------------------------------------------
 get_attributes(Domain,ItemName, AttributeNames) ->    
@@ -262,7 +267,9 @@ delete_attributes(Domain,ItemName, AttributeNames) ->
     Pid = pg2:get_closest_pid(erlsdb_servers),
     gen_server:call(Pid, {delete_attributes,Domain,ItemName,AttributeNames}).
 
-
+domain_metadata(Domain)->
+    Pid = pg2:get_closest_pid(erlsdb_servers),
+    gen_server:call(Pid, {domain_metadata,Domain}).
 %%====================================================================
 %% Internal functions
 %%====================================================================

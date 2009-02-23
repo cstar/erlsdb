@@ -32,16 +32,14 @@ v0.1 - 12/21/2007
 Features
 ---------
 - Uses Signature V2
-- Multiple servers are ran 5 by default
+- Multiple servers are ran (default : 5)
 - HTTP calls are asynchronous, per server.
-
+- SSL support enabled by default (for deactivating see example usage below)
 TODO
 -----
 - Update documentation
-- Add support for SELECT'ing
+- Add support for Query QueryWithAttributes and Select
 - The many little things that will make this library production-worthy.
-- add optional support for SSL
-- make better return values.
 
 License
 -------
@@ -56,7 +54,7 @@ Re-run rake
 
 = RUNNING = 
 
-erl -boot release_local/erlsdb-initial -erlsdb access '"<AWS_ACCESS_ID>"' secret '"<AWS_SECRET_KEY>"'
+erl -boot release_local/erlsdb-initial -erlsdb access '"<AWS_ACCESS_ID>"' secret '"<AWS_SECRET_KEY>"' ssl false
 1> erlsdb:create_domain("fubar").
 nil
 2> erlsdb:list_domains().
