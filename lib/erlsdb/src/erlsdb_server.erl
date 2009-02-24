@@ -153,7 +153,15 @@ handle_call({put_attributes,Domain, ItemName, Attributes, Replace},From,  State)
     Base = [{"DomainName", Domain},
 	    {"ItemName", ItemName}|
 		erlsdb_util:encode_attributes(Attributes)],
-    Base1 = if Replace == false -> Base; true -> Base ++ [{"Replace", "true"}] end,
+    Base1 = if Replace == false -> Base; 
+                true -> 
+                    {Encoded, _} = 
+                    lists:foldl(fun(_A, {Enc, I})->
+                        KeyName = "Attribute." ++ integer_to_list(I) ++ ".Replace",
+                        {[{KeyName, "true"}|Enc], I+1}
+                    end, {[], 0}, Attributes),
+                    Base ++ Encoded
+            end,
     rest_request(From, "PutAttributes", Base1, fun(_Xml) -> ok end, State);
 
 handle_call({delete_attributes, Domain, ItemName, AttributeNames},From,  State) -> 
@@ -271,9 +279,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 rest_request(From, Action, Params, XmlParserFunc, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P} = State) ->
     FullParams = Params ++ base_parameters(Action, AccessKey),
-    Url = uri(SSL) ++ query_string(SecretKey, FullParams),
+    Url = uri(SSL),
     ?DEBUG("******* Connecting to ~p ~n", [Url]),
-    {ok,RequestId} = http:request(get , {Url, []},[{timeout, ?TIMEOUT}],[{sync,false}]),
+    {ok,RequestId} = http:request(post , {Url, [], "application/x-www-form-urlencoded",query_string(SecretKey, FullParams) },[{timeout, ?TIMEOUT}],[{sync,false}]),
     Pendings = gb_trees:insert(RequestId,{From, XmlParserFunc},P),
     {noreply, State#state{pending=Pendings}}.
     
@@ -309,7 +317,7 @@ query_string(SecretKey, Params) ->
 	Params1),
     QueryStr = 
 	string:join(lists:foldr(fun query_string1/2, [], Params2), "&"),
-    SignatureData = "GET\nsdb.amazonaws.com\n/\n" ++ QueryStr,
+    SignatureData = "POST\nsdb.amazonaws.com\n/\n" ++ QueryStr,
     QueryStr ++ "&Signature=" ++ erlsdb_util:url_encode(signature(SecretKey, SignatureData)).
 
 
