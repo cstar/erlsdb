@@ -230,7 +230,7 @@ replace_attributes(Domain,ItemName, Attributes) ->
 %% @end
 %%--------------------------------------------------------------------
 get_attributes(Domain,ItemName) ->
-    get_attributes(Domain,ItemName, nil). 
+    get_attributes(Domain,ItemName, []). 
 
 
 %%--------------------------------------------------------------------

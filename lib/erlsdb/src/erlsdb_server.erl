@@ -56,7 +56,7 @@
 %% macro definitions
 %%--------------------------------------------------------------------
 -define(SERVER, ?MODULE).
--define(TIMEOUT, 10000).
+-define(TIMEOUT, 20000).
 
 
 
@@ -120,9 +120,14 @@ handle_call({list_domains, MoreToken, MaxNumberOfDomains}, From,State) ->
 
 handle_call({get_attributes, Domain, ItemName, AttributeNames}, From,  State) ->
     ?DEBUG("******* erlsdb_server:get_attributes~n", []),
+    {Encoded, _} = lists:foldl(fun(Key, {Enc, I})->
+            KeyName = "AttributeName." ++ integer_to_list(I),
+            {[{KeyName, Key}|Enc], I+1}
+        end, {[], 0}, AttributeNames),
+    
     Base = [{"DomainName", Domain},
 	    {"ItemName", ItemName} |
-		erlsdb_util:encode_attribute_names(AttributeNames)],
+		Encoded],
     rest_request(
 	From, 
 	"GetAttributes",
@@ -223,8 +228,7 @@ handle_call(Request, From, State) ->
 handle_cast(stop, State) ->
     {stop, normal, State};
 
-handle_cast(Msg, State) ->
-    ?DEBUG("******* handle_cast unexpected message ~p, state ~p ~n", [Msg, State]),
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 
@@ -290,7 +294,7 @@ handle_http_response(HttpResponse,RequestOp,Client, _State)->
             end;
         {error, ErrorMessage} ->
 	    case ErrorMessage of 
-		    %Error when  Error == timeout -> %Error == nxdomain orelse
+		    %Error when  Error == timeout ->
     	    %	    ?DEBUG("URL Timedout, retrying~n", []),
     	    %	    erlsdb_util:sleep(1000),
 		    %rest_request(SecretKey, Params, XmlParserFunc);
