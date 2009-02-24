@@ -322,7 +322,7 @@ query_string(SecretKey, Params) ->
 
 
 query_string1({Key, Value}, Query) ->
-    [Key ++ "=" ++ erlsdb_util:url_encode(Value) | Query].
+    [Key ++ "=" ++ erlsdb_util:url_encode(i2l(Value)) | Query].
 
 
 %%%

@@ -35,5 +35,5 @@ start_link(StartArgs) ->
 init(StartArgs) ->
     {ok, {{simple_one_for_one, 10, 1},
           [{undefined, {erlsdb_server, start_link, StartArgs},
-            temporary, brutal_kill, worker, [erlsdb_server]}]}}.
+            transient, brutal_kill, worker, [erlsdb_server]}]}}.
 

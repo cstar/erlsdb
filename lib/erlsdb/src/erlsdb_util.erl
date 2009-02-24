@@ -159,9 +159,12 @@ xml_names_values(List) ->
     lists:foldr(fun xml_names_values/2, [], List).
 
 xml_names_values(Xml, List) ->
-    [ #xmlText{value=Name} ]  = xmerl_xpath:string("//Name/text()", Xml),
-    [ #xmlText{value=Value} ]  = xmerl_xpath:string("//Value/text()", Xml),
-    [{Name, Value}|List].
+    [ #xmlText{value=Name} ]  = xmerl_xpath:string("Name/text()", Xml),
+    case xmerl_xpath:string("Value/text()", Xml) of
+        [ #xmlText{value=Value} ] ->
+            [{Name, Value}|List];
+        [] -> [{Name, []}|List]
+    end.
 
 parse_items(XML) ->
   lists:foldr(fun(Item, Acc)->
