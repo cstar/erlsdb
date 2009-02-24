@@ -1,6 +1,6 @@
 ErlSDB README
 -------------
-This code is a overhaul of Shahzad Bhatti's original code (apparently not maintained anymore).
+This code is an overhaul of Shahzad Bhatti's original code (apparently not maintained anymore).
 
 Summary
 -----------
@@ -45,6 +45,12 @@ Released under the GNU General Public License v2.
 Type rake.
 The first time, you will need to edit erlang_config.rb.
 Re-run rake
+
+= Configuration = 
+
+You'll need to set your credentials to Amazon SDB :
+- by passing them as OTP application parameters or
+- by setting the AMAZON_ACCESS_KEY_ID and AMAZON_SECRET_ACCESS_KEY environment variable
 
 = A FEW EXAMPLES = 
 # SSL is deactivated in the following : 

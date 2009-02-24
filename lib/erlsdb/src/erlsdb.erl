@@ -32,6 +32,7 @@
 %% External exports
 %%--------------------------------------------------------------------
 -export([
+     start/0,
 	 start/2,
 	 shutdown/0,
 	 stop/1
@@ -55,9 +56,12 @@
 	delete_attributes/2, 
 	delete_attributes/3,
 	domain_metadata/1,
+	q/2,
 	q/4,
+	qwa/2,
 	qwa/5,
-    select/2
+	s/1,
+    s/2
 	]).
 
 
@@ -77,23 +81,34 @@
 %% @spec start(Type, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
+
+start()->
+    crypto:start(),
+    application:start(xmerl),
+    inets:start(),
+    application:start(erlsdb).
+    
+
 start(_Type, _StartArgs) ->
-    %case erlsdb_sup:start_link(StartArgs) of
-    ID = param(access),
-    Secret = param(secret),
+    ID = get_id(),
+    Secret = get_secret(),
     SSL = param(ssl, true),
     if SSL == true -> ssl:start();
         true -> ok
     end,
-    N = param(workers, 5),
-    {ok,SupPid} = erlsdb_sup:start_link([ID, Secret, SSL]),
-    pg2:create(erlsdb_servers),
-	lists:map(
-	  fun(_) ->
-		  {ok, Pid} =  supervisor:start_child(SupPid,[]),
-		  pg2:join(erlsdb_servers, Pid)
-	  end, lists:seq(1, N)),
-	 {ok,SupPid}.
+    if ID == error orelse Secret == error ->
+            {error, "AWS credentials not set. Pass as application parameters or as env variables."};
+        true ->
+            N = param(workers, 5),
+            {ok,SupPid} = erlsdb_sup:start_link([ID, Secret, SSL]),
+            pg2:create(erlsdb_servers),
+	        lists:map(
+	          fun(_) ->
+	        	  {ok, Pid} =  supervisor:start_child(SupPid,[]),
+	        	  pg2:join(erlsdb_servers, Pid)
+	          end, lists:seq(1, N)),
+	         {ok,SupPid}
+	end.
 
 %%--------------------------------------------------------------------
 %% @doc Called to shudown the erlsdb application.
@@ -273,11 +288,20 @@ delete_attributes(Domain,ItemName, AttributeNames) ->
 q(Domain, Query, MaxNumber, NextToken)->
     Pid = pg2:get_closest_pid(erlsdb_servers),
     gen_server:call(Pid, {q,Domain, Query, MaxNumber, NextToken}).
+q(Domain, NextToken)->
+    q(Domain, nil, nil, NextToken).
+    
+qwa(Domain, NextToken)->
+    qwa(Domain,nil,nil,nil, NextToken).
+    
 qwa(Domain, Query, AttributeNames, MaxNumber, NextToken)->
     Pid = pg2:get_closest_pid(erlsdb_servers),
     gen_server:call(Pid, {qwa,Domain,Query, AttributeNames,  MaxNumber, NextToken}).
 
-select(Query, NextToken)->
+s(Query)->
+    s(Query, nil).
+
+s(Query, NextToken)->
     Pid = pg2:get_closest_pid(erlsdb_servers),
     gen_server:call(Pid, {select, Query, NextToken}).
 
@@ -295,10 +319,32 @@ stop(_State) ->
     ok.
 
 
+get_id()->
+   case application:get_env(access) of
+	{ok, Path} ->
+	    Path;
+	undefined ->
+	    case os:getenv("AMAZON_ACCESS_KEY_ID") of
+		false ->
+		    error;
+		Access ->
+		    Access
+	    end
+    end.
+get_secret()->
+   case application:get_env(secret) of
+	{ok, Path} ->
+	    Path;
+	undefined ->
+	    case os:getenv("AMAZON_SECRET_ACCESS_KEY") of
+		false ->
+		    error;
+		Access ->
+		    Access
+	    end
+    end.
 param(Name, Default)->
 	case application:get_env(?MODULE, Name) of
 		{ok, Value} -> Value;
 		_-> Default
 	end.
-
-param(Name) -> param(Name, nil).
