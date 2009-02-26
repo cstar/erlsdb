@@ -243,7 +243,7 @@ handle_cast(_Msg, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
 handle_info({http,{RequestId,Response}},State = #state{pending=P}) ->
-    ?DEBUG("******* Response :  ~p~n", [Response]),
+    %?DEBUG("******* Response :  ~p~n", [Response]),
 	case gb_trees:lookup(RequestId,P) of
 		{value,Request} -> handle_http_response(Response,Request, State),
 						 {noreply,State#state{pending=gb_trees:delete(RequestId,P)}};
@@ -275,7 +275,7 @@ code_change(_OldVsn, State, _Extra) ->
 rest_request(From, Action, Params, RequestOp, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P} = State) ->
     FullParams = Params ++ base_parameters(Action, AccessKey),
     Url = uri(SSL) ++ query_string(SecretKey, FullParams),
-    ?DEBUG("******* Connecting to ~p ~n", [Url]),
+    %?DEBUG("******* Connecting to ~p ~n", [Url]),
     {ok,RequestId} = http:request(get , {Url, []},[{timeout, ?TIMEOUT}],[{sync,false}]),
     Pendings = gb_trees:insert(RequestId,{From,Action, Params, RequestOp},P),
     {noreply, State#state{pending=Pendings}}.
@@ -284,7 +284,7 @@ rest_request(From, Action, Params, RequestOp, #state{ssl=SSL, access_key = Acces
 handle_http_response(HttpResponse,{From,Action, Params, RequestOp}, State)->
     case HttpResponse of 
         {{_HttpVersion, StatusCode, _ErrorMessage}, _Headers, Body } ->
-    	    ?DEBUG("******* Status ~p ~n", [StatusCode]),
+    	    %?DEBUG("******* Status ~p ~n", [StatusCode]),
             {Xml, _Rest} = xmerl_scan:string(binary_to_list(Body)),
             case StatusCode of
     	        200 ->

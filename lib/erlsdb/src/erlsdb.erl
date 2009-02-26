@@ -89,8 +89,8 @@ start()->
     
 
 start(_Type, _StartArgs) ->
-    ID = get_id(),
-    Secret = get_secret(),
+    ID = get(access, "AMAZON_ACCESS_KEY_ID"),
+    Secret = get(secret, "AMAZON_SECRET_ACCESS_KEY"),
     SSL = param(ssl, true),
     Timeout = param(timeout, nil),
     if SSL == true -> ssl:start();
@@ -109,7 +109,6 @@ start(_Type, _StartArgs) ->
 %% @end
 %%--------------------------------------------------------------------
 shutdown() ->
-    pg2:delete(erlsdb_servers),
     application:stop(erlsdb).
 
 
@@ -311,31 +310,19 @@ domain_metadata(Domain)->
 stop(_State) ->
     ok.
 
-
-get_id()->
-   case application:get_env(access) of
-	{ok, Path} ->
-	    Path;
-	undefined ->
-	    case os:getenv("AMAZON_ACCESS_KEY_ID") of
-		false ->
-		    error;
-		Access ->
-		    Access
-	    end
+get(Atom, Env)->
+    case application:get_env(Atom) of
+     {ok, Value} ->
+         Value;
+     undefined ->
+         case os:getenv(Env) of
+     	false ->
+     	    error;
+     	Value ->
+     	    Value
+         end
     end.
-get_secret()->
-   case application:get_env(secret) of
-	{ok, Path} ->
-	    Path;
-	undefined ->
-	    case os:getenv("AMAZON_SECRET_ACCESS_KEY") of
-		false ->
-		    error;
-		Access ->
-		    Access
-	    end
-    end.
+    
 param(Name, Default)->
 	case application:get_env(?MODULE, Name) of
 		{ok, Value} -> Value;
