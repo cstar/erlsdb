@@ -26,7 +26,6 @@
 %%--------------------------------------------------------------------
 %% Include files
 %%--------------------------------------------------------------------
--include("../include/erlsdb.hrl").
 
 %%--------------------------------------------------------------------
 %% External exports
@@ -93,6 +92,7 @@ start(_Type, _StartArgs) ->
     ID = get_id(),
     Secret = get_secret(),
     SSL = param(ssl, true),
+    Timeout = param(timeout, nil),
     if SSL == true -> ssl:start();
         true -> ok
     end,
@@ -100,14 +100,7 @@ start(_Type, _StartArgs) ->
             {error, "AWS credentials not set. Pass as application parameters or as env variables."};
         true ->
             N = param(workers, 5),
-            {ok,SupPid} = erlsdb_sup:start_link([ID, Secret, SSL]),
-            pg2:create(erlsdb_servers),
-	        lists:map(
-	          fun(_) ->
-	        	  {ok, Pid} =  supervisor:start_child(SupPid,[]),
-	        	  pg2:join(erlsdb_servers, Pid)
-	          end, lists:seq(1, N)),
-	         {ok,SupPid}
+            erlsdb_sup:start_link([ID, Secret, SSL, Timeout], N)
 	end.
 
 %%--------------------------------------------------------------------
@@ -128,7 +121,7 @@ shutdown() ->
 %% @end
 %%--------------------------------------------------------------------
 create_domain(Domain) ->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+     Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {create_domain,Domain}).
 
 %%--------------------------------------------------------------------
@@ -162,7 +155,7 @@ list_domains(MoreToken) ->
 %% @end
 %%--------------------------------------------------------------------
 list_domains(MoreToken, MaxNumberOfDomains) ->
-     Pid = pg2:get_closest_pid(erlsdb_servers),
+    Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {list_domains,MoreToken, MaxNumberOfDomains}). 
 
 
@@ -174,7 +167,7 @@ list_domains(MoreToken, MaxNumberOfDomains) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_domain(Domain) ->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+    Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {delete_domain,Domain}).
 
 
@@ -204,7 +197,7 @@ put_attributes(Domain,ItemName, Attributes) ->
 %% @end
 %%--------------------------------------------------------------------
 put_attributes(Domain, ItemName, Attributes, Replace) ->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+    Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {put_attributes,Domain, ItemName, Attributes, Replace}).
 
 
@@ -243,7 +236,7 @@ get_attributes(Domain,ItemName) ->
 %% @end
 %%--------------------------------------------------------------------
 get_attributes(Domain,ItemName, AttributeNames) ->    
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+    Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {get_attributes,Domain,ItemName,AttributeNames}).
 
 
@@ -257,7 +250,7 @@ get_attributes(Domain,ItemName, AttributeNames) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_item(Domain,ItemName) ->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+    Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {delete_item, Domain,ItemName}).
 
 
@@ -282,11 +275,11 @@ delete_attributes(Domain,ItemName) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_attributes(Domain,ItemName, AttributeNames) ->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+    Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {delete_attributes,Domain,ItemName,AttributeNames}).
 
 q(Domain, Query, MaxNumber, NextToken)->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+     Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {q,Domain, Query, MaxNumber, NextToken}).
 q(Domain, NextToken)->
     q(Domain, nil, nil, NextToken).
@@ -295,18 +288,18 @@ qwa(Domain, NextToken)->
     qwa(Domain,nil,nil,nil, NextToken).
     
 qwa(Domain, Query, AttributeNames, MaxNumber, NextToken)->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+     Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {qwa,Domain,Query, AttributeNames,  MaxNumber, NextToken}).
 
 s(Query)->
     s(Query, nil).
 
 s(Query, NextToken)->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+     Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {select, Query, NextToken}).
 
 domain_metadata(Domain)->
-    Pid = pg2:get_closest_pid(erlsdb_servers),
+     Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {domain_metadata,Domain}).
 %%====================================================================
 %% Internal functions

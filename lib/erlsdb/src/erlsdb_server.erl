@@ -26,13 +26,12 @@
 %%--------------------------------------------------------------------
 %% Include files
 %%--------------------------------------------------------------------
--include("../include/erlsdb.hrl").
 
 %%--------------------------------------------------------------------
 %% External exports
 %%--------------------------------------------------------------------
 -export([
-	start_link/3,
+	start_link/1,
 	stop/0
 	]).
 
@@ -49,16 +48,16 @@
 	]).
 
 %%--------------------------------------------------------------------
-%% record definitions
-%%--------------------------------------------------------------------
-
-%%--------------------------------------------------------------------
 %% macro definitions
 %%--------------------------------------------------------------------
 -define(SERVER, ?MODULE).
 -define(TIMEOUT, 20000).
-
-
+-define(DEBUG(Format, Args), error_logger:info_msg("D(~p:~p:~p) : "++Format++"~n",
+         [self(),?MODULE,?LINE]++Args)).
+%%--------------------------------------------------------------------
+%% record definitions
+%%--------------------------------------------------------------------
+-record(state, {ssl,access_key, secret_key, pending, timeout=?TIMEOUT}).
 
 %%====================================================================
 %% External functions
@@ -68,9 +67,8 @@
 %% @spec start_link() -> {ok, pid()} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Access, Secret, SSL) ->
-    %%?DEBUG("******* erlsdb_server:start_link/1 starting~n", [InitialState]),
-    gen_server:start_link(?MODULE, [Access, Secret, SSL], []).
+start_link([Access, Secret, SSL, Timeout]) ->
+    gen_server:start_link(?MODULE, [Access, Secret, SSL, Timeout], []).
 
 %%--------------------------------------------------------------------
 %% @doc Stops the server.
@@ -92,9 +90,12 @@ stop() ->
 %%          ignore               |
 %%          {stop, Reason}
 %%--------------------------------------------------------------------
-init([Access, Secret, SSL]) ->
-    ?DEBUG("******* erlsdb_server:init/1 starting~n", []),
-    {ok, #state{ssl = SSL,access_key=Access, secret_key=Secret, pending=gb_trees:empty()}}.
+init([Access, Secret, SSL, nil]) ->
+    {ok, #state{ssl = SSL,access_key=Access, secret_key=Secret, pending=gb_trees:empty()}};
+init([Access, Secret, SSL, Timeout]) ->
+    {ok, #state{ssl = SSL,access_key=Access, secret_key=Secret, timeout=Timeout, pending=gb_trees:empty()}}.
+
+
 
 %%--------------------------------------------------------------------
 %% Function: handle_call/3
@@ -107,7 +108,6 @@ init([Access, Secret, SSL]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
 handle_call({list_domains, MoreToken, MaxNumberOfDomains}, From,State) ->
-    ?DEBUG("******* erlsdb_server:list_domains BEGIN~n", []),
     rest_request(
 	From, 
 	"ListDomains",
@@ -119,7 +119,6 @@ handle_call({list_domains, MoreToken, MaxNumberOfDomains}, From,State) ->
 
 
 handle_call({get_attributes, Domain, ItemName, AttributeNames}, From,  State) ->
-    ?DEBUG("******* erlsdb_server:get_attributes~n", []),
     {Encoded, _} = lists:foldl(fun(Key, {Enc, I})->
             KeyName = "AttributeName." ++ integer_to_list(I),
             {[{KeyName, Key}|Enc], I+1}
@@ -137,19 +136,16 @@ handle_call({get_attributes, Domain, ItemName, AttributeNames}, From,  State) ->
     State);
     
 handle_call({create_domain, Domain}, From, State) -> 
-    ?DEBUG("******* erlsdb_server:create_domain ~p~n", [Domain]),
     Base = [{"DomainName", Domain}],
     rest_request(From, "CreateDomain",Base, fun(_Xml) -> ok end, State);
 
 
 handle_call({delete_domain, Domain}, From,State) -> 
-    ?DEBUG("******* erlsdb_server:delete_domain ~p~n", [Domain]),
     Base = [{"DomainName", Domain}],
     rest_request(From,"DeleteDomain", Base, fun(_Xml) -> ok end, State);
 
 
 handle_call({put_attributes,Domain, ItemName, Attributes, Replace},From,  State) -> 
-    ?DEBUG("******* erlsdb_server:put_attributes ~p~n", [Domain, ItemName, Attributes]),
     Base = [{"DomainName", Domain},
 	    {"ItemName", ItemName}|
 		erlsdb_util:encode_attributes(Attributes)],
@@ -165,7 +161,6 @@ handle_call({put_attributes,Domain, ItemName, Attributes, Replace},From,  State)
     rest_request(From, "PutAttributes", Base1, fun(_Xml) -> ok end, State);
 
 handle_call({delete_attributes, Domain, ItemName, AttributeNames},From,  State) -> 
-    ?DEBUG("******* erlsdb_server:delete_attributes ~p~n", [Domain, ItemName, AttributeNames]),
     Base = [{"DomainName", Domain},
 	    {"ItemName", ItemName} |
 		erlsdb_util:encode_attribute_names(AttributeNames)],
@@ -250,7 +245,7 @@ handle_cast(_Msg, State) ->
 handle_info({http,{RequestId,Response}},State = #state{pending=P}) ->
     ?DEBUG("******* Response :  ~p~n", [Response]),
 	case gb_trees:lookup(RequestId,P) of
-		{value,{Client,RequestOp}} -> handle_http_response(Response,RequestOp,Client, State),
+		{value,Request} -> handle_http_response(Response,Request, State),
 						 {noreply,State#state{pending=gb_trees:delete(RequestId,P)}};
 		none -> {noreply,State}
 				%% the requestid isn't here, probably the request was deleted after a timeout
@@ -277,37 +272,36 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 %%% Internal functions
 %%====================================================================
-rest_request(From, Action, Params, XmlParserFunc, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P} = State) ->
+rest_request(From, Action, Params, RequestOp, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P} = State) ->
     FullParams = Params ++ base_parameters(Action, AccessKey),
     Url = uri(SSL) ++ query_string(SecretKey, FullParams),
     ?DEBUG("******* Connecting to ~p ~n", [Url]),
     {ok,RequestId} = http:request(get , {Url, []},[{timeout, ?TIMEOUT}],[{sync,false}]),
-    Pendings = gb_trees:insert(RequestId,{From, XmlParserFunc},P),
+    Pendings = gb_trees:insert(RequestId,{From,Action, Params, RequestOp},P),
     {noreply, State#state{pending=Pendings}}.
     
 
-handle_http_response(HttpResponse,RequestOp,Client, _State)->
+handle_http_response(HttpResponse,{From,Action, Params, RequestOp}, State)->
     case HttpResponse of 
         {{_HttpVersion, StatusCode, _ErrorMessage}, _Headers, Body } ->
     	    ?DEBUG("******* Status ~p ~n", [StatusCode]),
             {Xml, _Rest} = xmerl_scan:string(binary_to_list(Body)),
-    	    %%%io:format("********* Xml ~p~n", [Xml]),
             case StatusCode of
     	        200 ->
-	            gen_server:reply(Client,RequestOp(Xml));
+	            gen_server:reply(From,RequestOp(Xml));
 	        _ ->
     		    [#xmlText{value=ErrorCode}]    = xmerl_xpath:string("//Error/Code/text()", Xml),
     		    [#xmlText{value=ErrorMessage}] = xmerl_xpath:string("//Error/Message/text()", Xml),
-    	            gen_server:reply(Client,{error, ErrorCode, ErrorMessage})
+    	        gen_server:reply(From,{error, ErrorCode, ErrorMessage})
             end;
         {error, ErrorMessage} ->
 	    case ErrorMessage of 
-		    %Error when  Error == timeout ->
-    	    %	    ?DEBUG("URL Timedout, retrying~n", []),
-    	    %	    erlsdb_util:sleep(1000),
-		    %rest_request(SecretKey, Params, XmlParserFunc);
+		    Error when  Error == timeout ->
+    	    	    ?DEBUG("URL Timedout, retrying~n", []),
+    	    	    erlsdb_util:sleep(1000),
+		            rest_request(From,Action, Params, RequestOp, State);
 		_ ->
-    	           gen_server:reply(Client,{error, http_error, ErrorMessage})
+    	           gen_server:reply(From,{error, http_error, ErrorMessage})
 	    end
     end.
 query_string(SecretKey, Params) ->
