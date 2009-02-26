@@ -121,7 +121,7 @@ shutdown() ->
 %%--------------------------------------------------------------------
 create_domain(Domain) ->
      Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {create_domain,Domain}).
+    gen_server:call(Pid, {create_domain,Domain}, infinity).
 
 %%--------------------------------------------------------------------
 %% @doc List all domains for the account
@@ -167,7 +167,7 @@ list_domains(MoreToken, MaxNumberOfDomains) ->
 %%--------------------------------------------------------------------
 delete_domain(Domain) ->
     Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {delete_domain,Domain}).
+    gen_server:call(Pid, {delete_domain,Domain}, infinity).
 
 
 

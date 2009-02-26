@@ -30,7 +30,7 @@
 %%%-------------------------------------------------------------------
 %%% Test Methods
 %%%-------------------------------------------------------------------
--export([test/1]).
+-export([test/0]).
 
 
 test_domain() ->
@@ -62,12 +62,11 @@ test_delete_test_domain() ->
 			List).
 
 test_replace_get_attributes() ->
-    erlsdb:create_domain(test_domain()),
     Attributes = lists:sort([
-	["StreetAddress", "705 5th Ave"],
-        ["City", "Seattle"],
-        ["State", "WA"],
-        ["Zip", "98101"]
+	{"StreetAddress", "705 5th Ave"},
+        {"City", "Seattle"},
+        {"State", "WA"},
+        {"Zip", "98101"}
 	]),
     erlsdb:replace_attributes(test_domain(),"TccAddress", Attributes),
     Response = erlsdb:get_attributes(test_domain(),"TccAddress"),
@@ -79,12 +78,11 @@ test_replace_get_attributes() ->
      end.
 
 test_replace_delete_attributes() ->
-    erlsdb:create_domain(test_domain()),
     Attributes = lists:sort([
-	["StreetAddress", "705 5th Ave"],
-        ["City", "Seattle"],
-        ["State", "WA"],
-        ["Zip", "98101"]
+	{"StreetAddress", "705 5th Ave"},
+        {"City", "Seattle"},
+        {"State", "WA"},
+        {"Zip", "98101"}
 	]),
     erlsdb:replace_attributes(test_domain(),"TccAddress", Attributes),
     erlsdb:delete_attributes(test_domain(),"TccAddress"),
@@ -97,17 +95,12 @@ test_replace_delete_attributes() ->
             io:format("Unexpected response while getting attributes after delete ~p~n", [Response])
      end.
 
-test([AccessKey, SecretKey]) ->
-    %debug_helper:start(),
-    %debug_helper:trace(erlsdb_server),
-    %%%application:load(erlsdb),
-    %%%application:start(erlsdb),
-    Response = erlsdb:start(type, [AccessKey,SecretKey]),
-    io:format("Test Started server ~p~n", [Response]),
-    test_list_domains(),
-    test_create_test_domain(),
-    test_delete_test_domain(),
-    test_replace_get_attributes(),
-    test_replace_delete_attributes(),
+test() ->
+    io:format("Test Started server ~p~n", [erlsdb:start()]),
+    io:format("Listing domains ~p~n",[test_list_domains()]),
+    io:format("Creating test domain ~p~n",[test_create_test_domain()]),
+    io:format("Adding attributes ~p~n",[test_replace_get_attributes()]),
+    io:format("Removing attributes ~p~n",[test_replace_delete_attributes()]),
+    io:format("Removing test domain ~p~n",[test_delete_test_domain()]),
     erlsdb_util:sleep(1500).
 

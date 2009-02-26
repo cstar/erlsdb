@@ -297,7 +297,7 @@ handle_http_response(HttpResponse,{From,Action, Params, RequestOp}, State)->
         {error, ErrorMessage} ->
 	    case ErrorMessage of 
 		    Error when  Error == timeout ->
-    	    	    ?DEBUG("URL Timedout, retrying~n", []),
+    	    	    %?DEBUG("URL Timedout, retrying~n", []),
     	    	    erlsdb_util:sleep(1000),
 		            rest_request(From,Action, Params, RequestOp, State);
 		_ ->
