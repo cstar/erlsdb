@@ -33,7 +33,7 @@ Features
 TODO
 -----
 - Update documentation
-- The many little things that will make this library production-worthy.
+- Implement a type system as described by James Murty in his book
 
 License
 -------

@@ -1,0 +1,81 @@
+s3erl: an erlang wrapper for Amazon's S3 storage service
+--------------------------------------------------------
+
+Author:  Andrew Birkett <andy@nobugs.org>
+
+Version: 0.2
+Date:    2007/12/29
+
+What is it?
+-----------
+
+Amazon's S3 storage service is a "pay as you go" service for storing
+files.  You can use it to serve web content, backup your files, etc.
+
+This s3erl library provides easy access to S3 for erlang applications.
+
+More info at: http://www.amazon.com/b?node=16427261
+
+Requirements
+------------
+
+- OTP-R12B (released on 2007/12/05).  Required due to a bug in inets'
+  handling of the HTTP 204 code [bug OTP-6982] which is heavily used by
+  S3.  Get it at http://erlang.org/download.html
+
+- An Amazon Web Services account - see http://www.amazonaws.com
+
+Installation and test
+---------------------
+
+$ tar zxvf s3erl-0.2.tar.gz
+$ cd s3erl-0.2
+$ make
+$ echo "code:add_pathz(\"$PWD/ebin\")." >> ~/.erlang
+
+$ erl
+1> s3test:run( "Your Access Key Id", "Your Secret Access Key", "A name for a bucket test").
+2> q().
+
+The test will execute the following steps
+
+ - list all of your buckets
+ - create the test bucket (the name is the 3rd argument)
+ - create a new object in that bucket
+ - list all the objects in that bucket
+ - delete the object
+ - delete the bucket.
+
+S3 has a single namespace for buckets, so you need to choose a unique
+bucket name for this test.  
+
+Version History
+---------------
+
+v0.2 - 2007/12/29
+
+  - Fix timezone bug in Date: header
+
+v0.1 - 2007/12/07
+
+  - First release, "works for me" (tm)
+  - Bucket operations: list, create, delete
+  - Object operations: read, write, list, delete
+
+ Missing features:
+  - Improved error handling
+  - Support for EU-based S3 buckets
+  - Support for streaming objects to/from disk (inets supports streaming
+    to disk, but not from disk just now) (harder)
+
+License
+-------
+
+Released under the GNU General Public License v2.
+
+Feedback
+--------
+
+Patches, bug reports and general feedback to andy@nobugs.org please!
+
+

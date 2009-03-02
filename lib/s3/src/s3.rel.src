@@ -1,6 +1,6 @@
 %% -*-erlang-*-   ; 
 {release,
- {"erlsdb", ""},
+ {"s3", ""},
  {erts, "_"},
  [{kernel, "_"},
   {stdlib, "_"},

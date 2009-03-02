@@ -272,11 +272,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 %%% Internal functions
 %%====================================================================
-rest_request(From, Action, Params, RequestOp, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P} = State) ->
+rest_request(From, Action, Params, RequestOp, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P, timeout=Timeout} = State) ->
     FullParams = Params ++ base_parameters(Action, AccessKey),
     Url = uri(SSL) ++ query_string(SecretKey, FullParams),
     %?DEBUG("******* Connecting to ~p ~n", [Url]),
-    {ok,RequestId} = http:request(get , {Url, []},[{timeout, ?TIMEOUT}],[{sync,false}]),
+    {ok,RequestId} = http:request(get , {Url, []},[{timeout, Timeout}],[{sync,false}]),
     Pendings = gb_trees:insert(RequestId,{From,Action, Params, RequestOp},P),
     {noreply, State#state{pending=Pendings}}.
     
