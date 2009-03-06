@@ -250,7 +250,7 @@ get_attributes(Domain,ItemName, AttributeNames) ->
 %%--------------------------------------------------------------------
 delete_item(Domain,ItemName) ->
     Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {delete_item, Domain,ItemName}).
+    gen_server:call(Pid, {delete_attributes, Domain,ItemName, []}).
 
 
 %%--------------------------------------------------------------------

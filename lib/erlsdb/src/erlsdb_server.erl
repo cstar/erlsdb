@@ -123,7 +123,6 @@ handle_call({get_attributes, Domain, ItemName, AttributeNames}, From,  State) ->
             KeyName = "AttributeName." ++ integer_to_list(I),
             {[{KeyName, Key}|Enc], I+1}
         end, {[], 0}, AttributeNames),
-    
     Base = [{"DomainName", Domain},
 	    {"ItemName", ItemName} |
 		Encoded],
