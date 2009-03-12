@@ -58,7 +58,7 @@
 %% record definitions
 %%--------------------------------------------------------------------
 -record(state, {ssl,access_key, secret_key, pending, timeout=?TIMEOUT}).
-
+-record(request, {pid, callback, action, params, code, headers=[], content=[]}).
 %%====================================================================
 %% External functions
 %%====================================================================
@@ -241,13 +241,36 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%--------------------------------------------------------------------
-handle_info({http,{RequestId,Response}},State = #state{pending=P}) ->
+
+handle_info({ibrowse_async_headers,RequestId,Code,Headers },State = #state{pending=P}) ->
+    %%?DEBUG("******* Response :  ~p~n", [Response]),
+	case gb_trees:lookup(RequestId,P) of
+		{value,#request{}=R} -> 
+			{noreply,State#state{pending=gb_trees:enter(RequestId,R#request{code = Code, headers=Headers},P)}};
+		none -> 
+		    {noreply,State}
+			%% the requestid isn't here, probably the request was deleted after a timeout
+	end;
+handle_info({ibrowse_async_response,_RequestId,{chunk_start, _N} },State) ->
+    {noreply, State};
+handle_info({ibrowse_async_response,_RequestId,chunk_end },State) ->
+    {noreply, State};	
+    
+handle_info({ibrowse_async_response,RequestId,Body },State = #state{pending=P}) when is_list(Body)->
     %?DEBUG("******* Response :  ~p~n", [Response]),
 	case gb_trees:lookup(RequestId,P) of
-		{value,Request} -> handle_http_response(Response,Request, State),
-						 {noreply,State#state{pending=gb_trees:delete(RequestId,P)}};
+		{value,#request{content=Content}=R} -> 
+			{noreply,State#state{pending=gb_trees:enter(RequestId,R#request{content=Content ++ Body}, P)}};
 		none -> {noreply,State}
-				%% the requestid isn't here, probably the request was deleted after a timeout
+			%% the requestid isn't here, probably the request was deleted after a timeout
+	end;
+handle_info({ibrowse_async_response_end,RequestId}, State = #state{pending=P})->
+    case gb_trees:lookup(RequestId,P) of
+		{value,R} -> 
+		    handle_http_response(R),
+			{noreply,State#state{pending=gb_trees:delete(RequestId, P)}};
+		none -> {noreply,State}
+			%% the requestid isn't here, probably the request was deleted after a timeout
 	end;
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -271,45 +294,40 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 %%% Internal functions
 %%====================================================================
-rest_request(From, Action, Params, RequestOp, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P, timeout=Timeout} = State) ->
+rest_request(From, Action, Params, Callback, #state{ssl=SSL, access_key = AccessKey, secret_key = SecretKey, pending=P, timeout=Timeout} = State) ->
     FullParams = Params ++ base_parameters(Action, AccessKey),
     Url = uri(SSL) ++ query_string(SecretKey, FullParams),
     %?DEBUG("******* Connecting to ~p ~n", [Url]),
-    {ok,RequestId} = http:request(get , {Url, []},[{timeout, Timeout}],[{sync,false}]),
-    Pendings = gb_trees:insert(RequestId,{From,Action, Params, RequestOp},P),
-    {noreply, State#state{pending=Pendings}}.
+    case ibrowse:send_req(Url,[], get , [],[{is_ssl, SSL},{ssl_options, []},{stream_to, self()}], Timeout) of
+    {ibrowse_req_id,RequestId} ->
+            Pendings = gb_trees:insert(RequestId,#request{pid=From,callback=Callback, action=Action, params=Params},P),
+            {noreply, State#state{pending=Pendings}};
+        {error,E} when E =:= retry_later ->
+            erlsdb_util:sleep(10),
+            rest_request(From, Action, Params, Callback, State );
+        {error, E} ->
+            io:format("Error : ~p, Pid : ~p~n", [E, self()]),
+            {reply, {error, E, "Error Occured"}, State}
+    end.
+    
+handle_http_response(#request{pid=From, callback=CallBack, code=Code, content=Content})
+                    when Code =:= "200" orelse Code =:= "204"->
+    {Xml, _Rest} = xmerl_scan:string(Content),
+    gen_server:reply(From, CallBack(Xml));
+handle_http_response(#request{pid=From, content=Content})->
+    {Xml, _Rest} = xmerl_scan:string(Content),
+    [#xmlText{value=ErrorCode}]    = xmerl_xpath:string("//Error/Code/text()", Xml),
+    [#xmlText{value=ErrorMessage}] = xmerl_xpath:string("//Error/Message/text()", Xml),
+    gen_server:reply(From,{error, ErrorCode, ErrorMessage}).
     
 
-handle_http_response(HttpResponse,{From,Action, Params, RequestOp}, State)->
-    case HttpResponse of 
-        {{_HttpVersion, StatusCode, _ErrorMessage}, _Headers, Body } ->
-    	    %?DEBUG("******* Status ~p ~n", [StatusCode]),
-            {Xml, _Rest} = xmerl_scan:string(binary_to_list(Body)),
-            case StatusCode of
-    	        200 ->
-	            gen_server:reply(From,RequestOp(Xml));
-	        _ ->
-    		    [#xmlText{value=ErrorCode}]    = xmerl_xpath:string("//Error/Code/text()", Xml),
-    		    [#xmlText{value=ErrorMessage}] = xmerl_xpath:string("//Error/Message/text()", Xml),
-    	        gen_server:reply(From,{error, ErrorCode, ErrorMessage})
-            end;
-        {error, ErrorMessage} ->
-	    case ErrorMessage of 
-		    Error when  Error == timeout ->
-    	    	    %?DEBUG("URL Timedout, retrying~n", []),
-    	    	    erlsdb_util:sleep(1000),
-		            rest_request(From,Action, Params, RequestOp, State);
-		_ ->
-    	           gen_server:reply(From,{error, http_error, ErrorMessage})
-	    end
-    end.
 query_string(SecretKey, Params) ->
     Params1 = lists:filter(fun({_, nil}) -> false ; (_) -> true end, Params),
     Params2 = lists:sort(
-	fun({A, _}, {X, _}) -> A < X end,
-	Params1),
+	    fun({A, _}, {X, _}) -> A < X end,
+	    Params1),
     QueryStr = 
-	string:join(lists:foldr(fun query_string1/2, [], Params2), "&"),
+	    string:join(lists:foldr(fun query_string1/2, [], Params2), "&"),
     SignatureData = "GET\nsdb.amazonaws.com\n/\n" ++ QueryStr,
     QueryStr ++ "&Signature=" ++ erlsdb_util:url_encode(signature(SecretKey, SignatureData)).
 

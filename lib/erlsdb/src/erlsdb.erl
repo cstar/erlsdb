@@ -60,7 +60,8 @@
 	qwa/2,
 	qwa/5,
 	s/1,
-    s/2
+    s/2,
+    s_all/1
 	]).
 
 
@@ -83,23 +84,26 @@
 
 start()->
     crypto:start(),
+    ibrowse:start(),
     application:start(xmerl),
-    inets:start(),
     application:start(erlsdb).
     
 
 start(_Type, _StartArgs) ->
     ID = get(access, "AMAZON_ACCESS_KEY_ID"),
     Secret = get(secret, "AMAZON_SECRET_ACCESS_KEY"),
-    SSL = param(ssl, true),
+    N = param(workers, 2),
+    SSL = param(ssl, false),
     Timeout = param(timeout, nil),
-    if SSL == true -> ssl:start();
-        true -> ok
+    Port = if SSL == true -> 
+            ssl:start(),
+            443;
+        true -> 80
     end,
+    ibrowse:set_dest("sdb.amazonaws.com", Port, [{max_sessions, N*20},{max_pipeline_size, N*20}]),
     if ID == error orelse Secret == error ->
             {error, "AWS credentials not set. Pass as application parameters or as env variables."};
         true ->
-            N = param(workers, 5),
             erlsdb_sup:start_link([ID, Secret, SSL, Timeout], N)
 	end.
 
@@ -290,6 +294,22 @@ qwa(Domain, Query, AttributeNames, MaxNumber, NextToken)->
      Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {qwa,Domain,Query, AttributeNames,  MaxNumber, NextToken}).
 
+s_all(Query)->
+    case s(Query, nil) of
+        {ok, R, nil} -> {ok, R};
+        {ok, R, N } -> s_all1(Query, N, R)
+    end.
+    
+s_all1(_Query, nil, R) -> R;
+s_all1(Query, N, R) ->
+    case s(Query, N) of
+        {ok, R1, N1} ->
+            s_all1(Query,N1, R ++ R1);
+        Error -> Error
+    end.
+            
+    
+    
 s(Query)->
     s(Query, nil).
 
