@@ -7,5 +7,6 @@
   {sasl, "_"},
   {crypto, "_"},
   {xmerl, "_"},
+  {ibrowse, "_"},
   {erlsdb, "_"}]
 }.

@@ -5,5 +5,5 @@
   {modules, %MODULES%},
   {mod, {erlsdb,[]}},
   {registered, [erlsdb_sup]},
-  {applications, [kernel, stdlib, sasl, crypto,  xmerl]}
+  {applications, [kernel, stdlib, sasl, crypto, ibrowse, xmerl]}
  ]}.
