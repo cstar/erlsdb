@@ -47,7 +47,8 @@
 	list_domains/2, 
 	delete_domain/1, 
 	put_attributes/3, 
-	put_attributes/4, 
+	put_attributes/4,
+	batch_put_attributes/2, 
 	replace_attributes/3,
 	get_attributes/2, 
 	get_attributes/3, 
@@ -90,6 +91,7 @@ start()->
     
 
 start(_Type, _StartArgs) ->
+    inets:start(httpc, [{profile, erlsdb}]),
     ID = get(access, "AMAZON_ACCESS_KEY_ID"),
     Secret = get(secret, "AMAZON_SECRET_ACCESS_KEY"),
     N = param(workers, 2),
@@ -196,14 +198,31 @@ put_attributes(Domain,ItemName, Attributes) ->
 %%  Replace = boolean - if true existing attributes will be replaced, 
 %%		otherwise they will be appended.
 %% </pre>
-%% @spec put_attributes(ItemName, Attributes, Replace) -> ok
+%% @spec put_attributes(Domain, ItemName, Attributes, Replace) -> ok
 %% @end
 %%--------------------------------------------------------------------
 put_attributes(Domain, ItemName, Attributes, Replace) ->
     Pid = erlsdb_sup:get_random_pid(),
     gen_server:call(Pid, {put_attributes,Domain, ItemName, Attributes, Replace}).
 
-
+%%--------------------------------------------------------------------
+%% @doc adds multiple attributes on several key in one go.
+%% 
+%% <pre>Types:
+%%  Items = [{ItemName,Attributes,Replace}|Tail] list of items
+%%  Attributes = array of key/value [{key1, value1}, {key2, value2}...]
+%% erlsdb:batch_put_attributes("fubar", 
+%%          [{"toto", [{"oiu", "12"}], false}, 
+%%           {"lkji", [{"oiul", "eric"}], false}]).
+%% </pre>
+%% @spec batch_put_attributes(Domain, Items) -> ok
+%% @end
+%%--------------------------------------------------------------------
+%%
+batch_put_attributes(Domain,Items) ->
+    Pid = erlsdb_sup:get_random_pid(),
+    gen_server:call(Pid, {batch_put_attributes,Domain,Items}).
+    
 %%--------------------------------------------------------------------
 %% @doc Replace an existing item with specified attributes
 %% Types:

@@ -159,6 +159,25 @@ handle_call({put_attributes,Domain, ItemName, Attributes, Replace},From,  State)
             end,
     rest_request(From, "PutAttributes", Base1, fun(_Xml) -> ok end, State);
 
+%%Items = [{ItemName,Attributes,Replace}|Tail] list of items
+handle_call({batch_put_attributes,Domain,Items},From, State) -> 
+        [_Count|Base0]=lists:foldl(fun({ItemName,Attributes,Replace},[N|Acc])->
+                    Base =[{"Item."++integer_to_list(N)++".ItemName", ItemName} | lists:foldl(fun({Key,Val}, TmpAcc)->
+                                    TmpKeyName = "Item."++integer_to_list(N)++"."++Key,
+                                    [{TmpKeyName,Val}|TmpAcc]    end,
+                                 [], erlsdb_util:encode_attributes(Attributes))],
+                    Base1 = if Replace == false -> Base; 
+                    true -> 
+                        {Encoded, _} =  lists:foldl(fun(_A, {Enc, I})->
+                            KeyName = "Item."++integer_to_list(N)++".Attribute." ++ integer_to_list(I) ++ ".Replace",
+                            {[{KeyName, "true"}|Enc], I+1}
+                        end, {[], 0}, Attributes),
+                        Base ++ Encoded
+                    end,
+            [N+1,Base1|Acc] end,[0],Items),
+        Params=lists:append([[{"DomainName", Domain}]|Base0]),
+        rest_request(From, "BatchPutAttributes", Params, fun(_Xml) -> ok end, State);
+
 handle_call({delete_attributes, Domain, ItemName, AttributeNames},From,  State) -> 
     Base = [{"DomainName", Domain},
 	    {"ItemName", ItemName} |
