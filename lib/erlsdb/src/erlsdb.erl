@@ -84,8 +84,8 @@
 %%--------------------------------------------------------------------
 
 start()->
-    crypto:start(),
-    ibrowse:start(),
+    application:start(crypto),
+    application:start(ibrowse),
     application:start(xmerl),
     application:start(erlsdb).
     
