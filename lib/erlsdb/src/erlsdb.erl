@@ -91,18 +91,18 @@ start()->
     
 
 start(_Type, _StartArgs) ->
-    inets:start(httpc, [{profile, erlsdb}]),
     ID = get(access, "AMAZON_ACCESS_KEY_ID"),
     Secret = get(secret, "AMAZON_SECRET_ACCESS_KEY"),
     N = param(workers, 2),
     SSL = param(ssl, false),
     Timeout = param(timeout, nil),
+    random:seed(now()),
     Port = if SSL == true -> 
             ssl:start(),
             443;
         true -> 80
     end,
-    ibrowse:set_dest("sdb.amazonaws.com", Port, [{max_sessions, N*20},{max_pipeline_size, N*20}]),
+    ibrowse:set_dest("sdb.amazonaws.com", Port, [{max_sessions, 100},{max_pipeline_size, 20}]),
     if ID == error orelse Secret == error ->
             {error, "AWS credentials not set. Pass as application parameters or as env variables."};
         true ->
@@ -126,8 +126,7 @@ shutdown() ->
 %% @end
 %%--------------------------------------------------------------------
 create_domain(Domain) ->
-     Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {create_domain,Domain}, infinity).
+    call( {create_domain,Domain}).
 
 %%--------------------------------------------------------------------
 %% @doc List all domains for the account
@@ -160,8 +159,7 @@ list_domains(MoreToken) ->
 %% @end
 %%--------------------------------------------------------------------
 list_domains(MoreToken, MaxNumberOfDomains) ->
-    Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {list_domains,MoreToken, MaxNumberOfDomains}). 
+    call( {list_domains,MoreToken, MaxNumberOfDomains}). 
 
 
 %%--------------------------------------------------------------------
@@ -172,8 +170,7 @@ list_domains(MoreToken, MaxNumberOfDomains) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_domain(Domain) ->
-    Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {delete_domain,Domain}, infinity).
+    call({delete_domain,Domain}).
 
 
 
@@ -202,8 +199,7 @@ put_attributes(Domain,ItemName, Attributes) ->
 %% @end
 %%--------------------------------------------------------------------
 put_attributes(Domain, ItemName, Attributes, Replace) ->
-    Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {put_attributes,Domain, ItemName, Attributes, Replace}).
+    call({put_attributes,Domain, ItemName, Attributes, Replace}).
 
 %%--------------------------------------------------------------------
 %% @doc adds multiple attributes on several key in one go.
@@ -220,8 +216,7 @@ put_attributes(Domain, ItemName, Attributes, Replace) ->
 %%--------------------------------------------------------------------
 %%
 batch_put_attributes(Domain,Items) ->
-    Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {batch_put_attributes,Domain,Items}).
+   call( {batch_put_attributes,Domain,Items}).
     
 %%--------------------------------------------------------------------
 %% @doc Replace an existing item with specified attributes
@@ -258,8 +253,7 @@ get_attributes(Domain,ItemName) ->
 %% @end
 %%--------------------------------------------------------------------
 get_attributes(Domain,ItemName, AttributeNames) ->    
-    Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {get_attributes,Domain,ItemName,AttributeNames}).
+    call({get_attributes,Domain,ItemName,AttributeNames}).
 
 
 %%--------------------------------------------------------------------
@@ -272,8 +266,7 @@ get_attributes(Domain,ItemName, AttributeNames) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_item(Domain,ItemName) ->
-    Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {delete_attributes, Domain,ItemName, []}).
+    call({delete_attributes, Domain,ItemName, []}).
 
 
 %%--------------------------------------------------------------------
@@ -297,12 +290,10 @@ delete_attributes(Domain,ItemName) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_attributes(Domain,ItemName, AttributeNames) ->
-    Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {delete_attributes,Domain,ItemName,AttributeNames}).
+    call( {delete_attributes,Domain,ItemName,AttributeNames}).
 
 q(Domain, Query, MaxNumber, NextToken)->
-     Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {q,Domain, Query, MaxNumber, NextToken}).
+    call({q,Domain, Query, MaxNumber, NextToken}).
 q(Domain, NextToken)->
     q(Domain, nil, nil, NextToken).
     
@@ -310,8 +301,7 @@ qwa(Domain, NextToken)->
     qwa(Domain,nil,nil,nil, NextToken).
     
 qwa(Domain, Query, AttributeNames, MaxNumber, NextToken)->
-     Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {qwa,Domain,Query, AttributeNames,  MaxNumber, NextToken}).
+     call({qwa,Domain,Query, AttributeNames,  MaxNumber, NextToken}).
 
 s_all(Query)->
     case s(Query, nil) of
@@ -333,12 +323,10 @@ s(Query)->
     s(Query, nil).
 
 s(Query, NextToken)->
-     Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {select, Query, NextToken}).
+    call({select, Query, NextToken}).
 
 domain_metadata(Domain)->
-     Pid = erlsdb_sup:get_random_pid(),
-    gen_server:call(Pid, {domain_metadata,Domain}).
+    call({domain_metadata,Domain}).
 %%====================================================================
 %% Internal functions
 %%====================================================================
@@ -348,6 +336,19 @@ domain_metadata(Domain)->
 %%--------------------------------------------------------------------
 stop(_State) ->
     ok.
+
+call(M)->
+    call(M, 0).
+
+call(M, Retries)->
+    Pid = erlsdb_sup:get_random_pid(),
+    case gen_server:call(Pid, M, infinity) of
+      retry -> 
+          Sleep = random:uniform(math:pow(4, Retries)*10),
+          erlsdb_util:sleep(Sleep),
+          call(M, Retries + 1);
+      R -> R
+  end.
 
 get(Atom, Env)->
     case application:get_env(Atom) of

@@ -264,8 +264,14 @@ handle_cast(_Msg, State) ->
 handle_info({ibrowse_async_headers,RequestId,Code,Headers },State = #state{pending=P}) ->
     %%?DEBUG("******* Response :  ~p~n", [Response]),
 	case gb_trees:lookup(RequestId,P) of
-		{value,#request{}=R} -> 
-			{noreply,State#state{pending=gb_trees:enter(RequestId,R#request{code = Code, headers=Headers},P)}};
+		{value,#request{pid=Pid}=R} ->
+		    {ICode, []} = string:to_integer(Code),
+		    if ICode >= 500 ->
+		        gen_server:reply(Pid,retry), 
+			    {noreply,State#state{pending=gb_trees:delete(RequestId,P)}};
+			true ->
+			    {noreply,State#state{pending=gb_trees:enter(RequestId,R#request{code = Code, headers=Headers},P)}}
+			end;
 		none -> 
 		    {noreply,State}
 			%% the requestid isn't here, probably the request was deleted after a timeout
@@ -291,6 +297,16 @@ handle_info({ibrowse_async_response_end,RequestId}, State = #state{pending=P})->
 		none -> {noreply,State}
 			%% the requestid isn't here, probably the request was deleted after a timeout
 	end;
+	
+handle_info({ibrowse_async_response,RequestId,{error,req_timedout}}, State = #state{pending=P})->
+    case gb_trees:lookup(RequestId,P) of
+		{value,#request{pid=Pid}} -> 
+		    gen_server:reply(Pid, retry),
+		    {noreply,State#state{pending=gb_trees:delete(RequestId, P)}};
+		none -> {noreply,State}
+			%% the requestid isn't here, probably the request was deleted after a timeout
+	end;	
+
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -321,9 +337,8 @@ rest_request(From, Action, Params, Callback, #state{ssl=SSL, access_key = Access
     {ibrowse_req_id,RequestId} ->
             Pendings = gb_trees:insert(RequestId,#request{pid=From,callback=Callback, action=Action, params=Params},P),
             {noreply, State#state{pending=Pendings}};
-        {error,E} when E =:= retry_later ->
-            erlsdb_util:sleep(10),
-            rest_request(From, Action, Params, Callback, State );
+        {error,E} when E =:= retry_later orelse E =:= conn_failed ->
+            {reply, retry, State};
         {error, E} ->
             io:format("Error : ~p, Pid : ~p~n", [E, self()]),
             {reply, {error, E, "Error Occured"}, State}
