@@ -298,9 +298,10 @@ handle_info({ibrowse_async_response_end,RequestId}, State = #state{pending=P})->
 			%% the requestid isn't here, probably the request was deleted after a timeout
 	end;
 	
-handle_info({ibrowse_async_response,RequestId,{error,req_timedout}}, State = #state{pending=P})->
+handle_info({ibrowse_async_response,RequestId,{error,Error}}, State = #state{pending=P})->
     case gb_trees:lookup(RequestId,P) of
 		{value,#request{pid=Pid}} -> 
+		    error_logger:warning_msg("Warning query failed (retrying) : ~p~n", [Error]),
 		    gen_server:reply(Pid, retry),
 		    {noreply,State#state{pending=gb_trees:delete(RequestId, P)}};
 		none -> {noreply,State}
