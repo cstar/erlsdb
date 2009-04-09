@@ -57,7 +57,7 @@
 %%--------------------------------------------------------------------
 %% record definitions
 %%--------------------------------------------------------------------
--record(state, {ssl,access_key, secret_key, pending, timeout=?TIMEOUT}).
+-record(state, {ssl,access_key, secret_key, pending,  timeout=?TIMEOUT}).
 -record(request, {pid, callback, action, params, code, headers=[], content=[]}).
 %%====================================================================
 %% External functions
@@ -93,7 +93,7 @@ stop() ->
 init([Access, Secret, SSL, nil]) ->
     {ok, #state{ssl = SSL,access_key=Access, secret_key=Secret, pending=gb_trees:empty()}};
 init([Access, Secret, SSL, Timeout]) ->
-    {ok, #state{ssl = SSL,access_key=Access, secret_key=Secret, timeout=Timeout, pending=gb_trees:empty()}}.
+    {ok, #state{ssl = SSL,access_key=Access, secret_key=Secret, timeout=Timeout,pending=gb_trees:empty()}}.
 
 
 

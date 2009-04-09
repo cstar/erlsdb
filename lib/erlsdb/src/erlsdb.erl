@@ -96,7 +96,7 @@ start(_Type, _StartArgs) ->
     N = param(workers, 2),
     SSL = param(ssl, false),
     Timeout = param(timeout, nil),
-    random:seed(now()),
+    random:seed(),
     Port = if SSL == true -> 
             ssl:start(),
             443;
