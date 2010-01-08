@@ -42,9 +42,8 @@ Released under the GNU General Public License v2.
 
 = BUILDING =
 
-Type rake.
-The first time, you will need to edit erlang_config.rb.
-Re-run rake
+./rebar compile
+sudo ./rebar install
 
 = Configuration = 
 
