@@ -1,7 +1,7 @@
 {application, erlsdb,
  [{description, "Access to SimpleDB"},
   {author, "Eric Cestari"},
-  {vsn, "1.3"},
+  {vsn, "1.4"},
   {modules, [cachedsdb, erlsdb, erlsdb_server, erlsdb_sup, erlsdb_util, sdb_test]},
   {mod, {erlsdb,[]}},
   {registered, [erlsdb_sup]},

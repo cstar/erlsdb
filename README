@@ -103,29 +103,6 @@ nil
 {ok,[{"blob1",[{"toto","truc"},{"foo","bar"}]},
      {"blob2",[{"toto","truc"},{"foo","bar"}]}],
     nil}
-= About building = 
-(Extract from charpi's readme)
 
-rake --tasks : to know all tasks
-
-You'll need a configuration in which you'll have to put things specific to your installation.
-A template of file is generated the first time you launch 'rake'
-
-Here is some useful tasks:
-rake erlang:modules: Compile all erlang source files (test included)
-rake erlang:releases: Build a tarball for each rel file found in the directory tree
-rake erlang:tests[name]: Run the eunit test for the application "name". If no name is given, 
-     all applications are tested. If a file test.desc is find in the "app_name/test" directory, eunit will
-     use it as eunit test description.
-rake erlang:edoc[name]: Build the document for an application or all if 'name' is omitted
-rake otp:new_application[name]: Create a new application squeleton
-rake otp:start_local[name]: Start a release in the developper environment
-
-rake otp:initial_targer[name,version]: Create a tarball with a 'ready' to deploy
-     an erlang system running the release. To use the system, you have to provide
-     2 startup files in a directory named 'release_config'. Look at the sample in the
-     application sample_rake.
-= Build Author = 
-Nicolas Charpentier <open_source@charpi.net>
 
 
