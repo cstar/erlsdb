@@ -31,6 +31,10 @@
 	encode_attributes/2,
 	encode_attribute_names/1,
 	encode_attribute_names/2,
+	encode_expected/1,
+	encode_expected/2,
+	encode_expected_names/1,
+	encode_expected_names/2,
 	two_digit/1,
 	abs_two_digit/1,
 	create_timestamp/0,
@@ -91,6 +95,45 @@ encode_attribute_names(Key, {Encoded, I}) ->
     {[{KeyName, Key}|Encoded], I+1}.
 
 
+%%--------------------------------------------------------------------
+%% @doc encode_expected
+%% <pre>
+%% Types:
+%%  Expected = array of key/value, e.g. [[key1, value1, [key2, value2], ..]
+%% </pre>
+%% @spec encode_attribute(Attributes) -> [[keyname, key], [valuename, value],...]
+%% @end
+%%--------------------------------------------------------------------
+encode_expected(Attributes) when Attributes == nil ->
+    [];
+encode_expected(Attributes) ->
+    {Encoded, _} = lists:foldr(fun encode_expected/2, {[], 0}, Attributes),
+    Encoded.
+
+encode_expected({Key, Value}, {Encoded, I}) ->
+    KeyName = "Expected." ++ integer_to_list(I) ++ ".Name",
+    KeyValue = "Expected." ++ integer_to_list(I) ++ ".Value",
+    {[{KeyName, Key}, {KeyValue, Value}|Encoded], I+1}.
+
+
+%%--------------------------------------------------------------------
+%% @doc encode_attribute_namee
+%% <pre>
+%% Types:
+%%  Attributes = array of names, e.g. [key1, key2, ..]
+%% </pre>
+%% @spec encode_attribute_names(Attributes) -> [[keyname, key], ...]
+%% @end
+%%--------------------------------------------------------------------
+encode_expected_names(Attributes) when Attributes == nil ->
+    [];
+encode_expected_names(Attributes) ->
+    {Encoded, _} = lists:foldr(fun encode_expected_names/2, {[], 0}, Attributes),
+    Encoded.
+
+encode_expected_names(Key, {Encoded, I}) ->
+    KeyName = "Expected." ++ integer_to_list(I) ++ ".Name",
+    {[{KeyName, Key}|Encoded], I+1}.
 
 
 %%--------------------------------------------------------------------

@@ -144,10 +144,10 @@ handle_call({delete_domain, Domain}, From,State) ->
     rest_request(From,"DeleteDomain", Base, fun(_Xml) -> ok end, State);
 
 
-handle_call({put_attributes,Domain, ItemName, Attributes, Replace},From,  State) -> 
-    Base = [{"DomainName", Domain},
-	    {"ItemName", ItemName}|
-		erlsdb_util:encode_attributes(Attributes)],
+handle_call({put_attributes,Domain, ItemName, Attributes, Replace, Expected},From,  State) -> 
+    Base = lists:flatten([{"DomainName", Domain},
+	    {"ItemName", ItemName},
+		erlsdb_util:encode_attributes(Attributes), 	erlsdb_util:encode_expected(Expected)]),
     Base1 = if Replace == false -> Base; 
                 true -> 
                     {Encoded, _} = 
@@ -178,11 +178,12 @@ handle_call({batch_put_attributes,Domain,Items},From, State) ->
         Params=lists:append([[{"DomainName", Domain}]|Base0]),
         rest_request(From, "BatchPutAttributes", Params, fun(_Xml) -> ok end, State);
 
-handle_call({delete_attributes, Domain, ItemName, AttributeNames},From,  State) -> 
+handle_call({delete_attributes, Domain, ItemName, AttributeNames, Conditional},From,  State) -> 
     Base = [{"DomainName", Domain},
-	    {"ItemName", ItemName} |
-		erlsdb_util:encode_attribute_names(AttributeNames)],
-    rest_request(From, "DeleteAttributes", Base, fun(_Xml) -> ok end, State);
+	    {"ItemName", ItemName},
+		erlsdb_util:encode_attribute_names(AttributeNames), 
+		erlsdb_util:encode_expected(Conditional)],
+    rest_request(From, "DeleteAttributes", lists:flatten(Base), fun(_Xml) -> ok end, State);
 
 handle_call({domain_metadata, Domain},From,  State) ->
     rest_request(From, "DomainMetadata", [{"DomainName", Domain}], 
@@ -215,9 +216,9 @@ handle_call({qwa ,Domain, Query,  AttributeNames, MaxNumber, NextToken}, From, S
     	            parse_token(Xml)} 
 	end, State);
 	
-handle_call({select,Query, NextToken}, From, State)->
+handle_call({select,Query, NextToken, Consistent}, From, State)->
     rest_request(From, "Select", 
-            [{"SelectExpression", Query}, {"NextToken", NextToken}],
+            [{"SelectExpression", Query}, {"NextToken", NextToken}|is_consistent(Consistent)],
             fun(Xml) -> {ok, 
     	erlsdb_util:parse_items(Xml),
     	parse_token(Xml)} 
@@ -396,9 +397,13 @@ parse_token(Xml)->
     end.
 
 i2l(nil) -> nil;
-i2l(I) when integer(I) -> integer_to_list(I);
-i2l(L) when list(L)    -> L.
+i2l(I) when is_integer(I) -> integer_to_list(I);
+i2l(L) when is_list(L)    -> L.
 
+is_consistent(true)->
+  [{"ConsistentRead", "true"}];
+is_consistent(_)->
+  [].
 %%%-------------------------------------------------------------------
 %%% Configuration Functions %%%
 %%%-------------------------------------------------------------------
@@ -408,5 +413,5 @@ uri(true) ->
    "https://sdb.amazonaws.com/?".
 
 version() ->
-   "2007-11-07".
+   "2009-04-15".
 

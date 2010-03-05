@@ -50,19 +50,25 @@
 	put_attributes/4,
 	batch_put_attributes/2, 
 	replace_attributes/3,
+	replace_attributes/4,
 	get_attributes/2, 
 	get_attributes/3, 
 	delete_item/2, 
+	delete_item/3, 
 	delete_attributes/2, 
 	delete_attributes/3,
+	delete_attributes/4,
 	domain_metadata/1,
 	q/2,
 	q/4,
 	qwa/2,
 	qwa/5,
 	s/1,
-    s/2,
-    s_all/1
+  s/2,
+  s_all/1,
+  cs/1,
+  cs/2,
+  cs_all/1
 	]).
 
 
@@ -184,7 +190,7 @@ delete_domain(Domain) ->
 %% @end
 %%--------------------------------------------------------------------
 put_attributes(Domain,ItemName, Attributes) ->
-    put_attributes(Domain,ItemName, Attributes, false). 
+    put_attributes(Domain,ItemName, Attributes, false, []). 
 
 
 %%--------------------------------------------------------------------
@@ -198,8 +204,14 @@ put_attributes(Domain,ItemName, Attributes) ->
 %% @spec put_attributes(Domain, ItemName, Attributes, Replace) -> ok
 %% @end
 %%--------------------------------------------------------------------
-put_attributes(Domain, ItemName, Attributes, Replace) ->
-    call({put_attributes,Domain, ItemName, Attributes, Replace}).
+put_attributes(Domain, ItemName, Attributes, Replace) when Replace =:= true orelse Replace =:= false -> 
+    call({put_attributes,Domain, ItemName, Attributes, Replace, []});
+
+put_attributes(Domain, ItemName, Attributes, Conditional) -> 
+    call({put_attributes,Domain, ItemName, Attributes, false, Conditional}).
+    
+put_attributes(Domain, ItemName, Attributes, Replace, Conditional) ->
+    call({put_attributes,Domain, ItemName, Attributes, Replace, Conditional}).
 
 %%--------------------------------------------------------------------
 %% @doc adds multiple attributes on several key in one go.
@@ -228,8 +240,10 @@ batch_put_attributes(Domain,Items) ->
 %% @end
 %%--------------------------------------------------------------------
 replace_attributes(Domain,ItemName, Attributes) ->
-    put_attributes(Domain, ItemName, Attributes, true). 
+    put_attributes(Domain, ItemName, Attributes, true, []). 
 
+replace_attributes(Domain,ItemName, Attributes, Conditional) ->
+    put_attributes(Domain, ItemName, Attributes, true, Conditional). 
 
 %%--------------------------------------------------------------------
 %% @doc Retrieves an existing item with all attributes
@@ -266,9 +280,11 @@ get_attributes(Domain,ItemName, AttributeNames) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_item(Domain,ItemName) ->
-    call({delete_attributes, Domain,ItemName, []}).
+  call({delete_attributes, Domain,ItemName, [], []}).
 
-
+delete_item(Domain, ItemName, ConditionalValues) ->
+  call({delete_attributes, Domain,ItemName, [], ConditionalValues}).
+  
 %%--------------------------------------------------------------------
 %% @doc Deletes all attributes for given item in domain
 %% Types:
@@ -278,7 +294,7 @@ delete_item(Domain,ItemName) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_attributes(Domain,ItemName) ->
-    delete_attributes(Domain,ItemName, nil).
+    delete_attributes(Domain,ItemName, nil, []).
 
 %%--------------------------------------------------------------------
 %% @doc Deletes all matching attributes for given item in domain
@@ -290,7 +306,10 @@ delete_attributes(Domain,ItemName) ->
 %% @end
 %%--------------------------------------------------------------------
 delete_attributes(Domain,ItemName, AttributeNames) ->
-    call( {delete_attributes,Domain,ItemName,AttributeNames}).
+    call( {delete_attributes,Domain,ItemName,AttributeNames, []}).
+
+delete_attributes(Domain,ItemName, AttributeNames, ConditionalValues) ->
+    call( {delete_attributes,Domain,ItemName,AttributeNames, ConditionalValues}).
 
 q(Domain, Query, MaxNumber, NextToken)->
     call({q,Domain, Query, MaxNumber, NextToken}).
@@ -303,27 +322,40 @@ qwa(Domain, NextToken)->
 qwa(Domain, Query, AttributeNames, MaxNumber, NextToken)->
      call({qwa,Domain,Query, AttributeNames,  MaxNumber, NextToken}).
 
+% Eventually consistent
 s_all(Query)->
     case s(Query, nil) of
         {ok, R, nil} -> {ok, R};
-        {ok, R, N } -> s_all1(Query, N, R)
+        {ok, R, N } -> s_all1(Query, N, R, false)
     end.
     
-s_all1(_Query, nil, R) -> R;
-s_all1(Query, N, R) ->
-    case s(Query, N) of
+% Consistent read    
+cs_all(Query)->
+  case cs(Query, nil) of
+        {ok, R, nil} -> {ok, R};
+        {ok, R, N } -> s_all1(Query, N, R, true)
+    end.
+    
+s_all1(_Query, nil, R, _Consistent) -> R;
+s_all1(Query, N, R, Consistent) ->
+    case call({select, Query, N, Consistent}) of
         {ok, R1, N1} ->
-            s_all1(Query,N1, R ++ R1);
+            s_all1(Query,N1, R ++ R1, Consistent);
         Error -> Error
     end.
             
-    
-    
+%% Consistent read select    
+cs(Query) ->
+   cs(Query, nil).
+cs(Query, NextToken)->
+  call({select, Query, NextToken, true}).
+
+%% Eventually consistent select
 s(Query)->
     s(Query, nil).
 
 s(Query, NextToken)->
-    call({select, Query, NextToken}).
+    call({select, Query, NextToken, false}).
 
 domain_metadata(Domain)->
     call({domain_metadata,Domain}).
