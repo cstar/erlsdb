@@ -44,7 +44,6 @@
 	xml_names_values/2,
 	parse_items/1,
 	xml_int/1,
-	sleep/1,
 	url_encode/1
 	]).
 
@@ -213,23 +212,6 @@ parse_items(XML) ->
        [ #xmlText{value=Name} ] = xmerl_xpath:string("Name/text()", Item),
        [{Name, xml_names_values(xmerl_xpath:string("Attribute", Item))}|Acc]
       end, [], xmerl_xpath:string("//Item", XML)).
-
-    
-%%--------------------------------------------------------------------
-%% @doc sleep 
-%% <pre>
-%% Types:
-%%  SecretKey = string
-%%  Data = string
-%% </pre>
-%% @spec timeout() -> true
-%% @end
-%%--------------------------------------------------------------------
-sleep(T) ->
-    receive
-    after T ->
-       true
-    end.
 
 
 %%--------------------------------------------------------------------

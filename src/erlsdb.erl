@@ -376,8 +376,8 @@ call(M, Retries)->
     Pid = erlsdb_sup:get_random_pid(),
     case gen_server:call(Pid, M, infinity) of
       retry -> 
-          Sleep = random:uniform(math:pow(4, Retries)*10),
-          erlsdb_util:sleep(Sleep),
+          Sleep = random:uniform(trunc(math:pow(4, Retries)*10)),
+          timer:sleep(Sleep),
           call(M, Retries + 1);
       R -> R
   end.
