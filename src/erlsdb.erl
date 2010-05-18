@@ -373,7 +373,9 @@ stop(_State) ->
 
 call(M)->
     call(M, 0).
-
+call(_M, ?MAX_RETRIES)->
+  {error, max_retries_reached};
+  
 call(M, Retries)->
     Pid = erlsdb_sup:get_random_pid(),
     case gen_server:call(Pid, M, infinity) of
@@ -382,9 +384,8 @@ call(M, Retries)->
           timer:sleep(Sleep),
           call(M, Retries + 1);
       R -> R
-  end;
-call(M, MAX_RETRIES)->
-  {error, max_retries_reached}.
+  end.
+
   
 get(Atom, Env)->
     case application:get_env(Atom) of
