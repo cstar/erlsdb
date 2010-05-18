@@ -72,6 +72,8 @@
 	]).
 
 
+-define (MAX_RETRIES, 6).
+
 %%--------------------------------------------------------------------
 %% Macros
 %%--------------------------------------------------------------------
@@ -376,12 +378,14 @@ call(M, Retries)->
     Pid = erlsdb_sup:get_random_pid(),
     case gen_server:call(Pid, M, infinity) of
       retry -> 
-          Sleep = random:uniform(trunc(math:pow(4, Retries)*10)),
+          Sleep = random:uniform(trunc(math:pow(4, Retries)*100)),
           timer:sleep(Sleep),
           call(M, Retries + 1);
       R -> R
-  end.
-
+  end;
+call(M, MAX_RETRIES)->
+  {error, max_retries_reached}.
+  
 get(Atom, Env)->
     case application:get_env(Atom) of
      {ok, Value} ->
